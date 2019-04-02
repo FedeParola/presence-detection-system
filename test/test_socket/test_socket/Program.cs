@@ -37,13 +37,12 @@ namespace test_socket {
                     /* Print the records */
                     foreach (Record r in records) {
                         Console.WriteLine("{{\n" +
-                            "\t\"tstamp_sec\":{4},\n" +
-                            "\t\"tstamp_msec\":{5},\n" +
+                            "\t\"timestamp\":{4},\n" +
                             "\t\"ssid\":\"{0}\",\n" +
                             "\t\"mac\":\"{1}\",\n" +
                             "\t\"rssi\":{2},\n" +
                             "\t\"hash\":\"{3}\"\n" +
-                            "}}", r.Ssid, r.MacAddr, r.Rssi, r.Hash, r.TstampSec, r.TstampMsec);
+                            "}}", r.Ssid, r.MacAddr, r.Rssi, r.Hash, r.Timestamp);
                     }
 
                     /* Get the current timestamp and send it to the esp */

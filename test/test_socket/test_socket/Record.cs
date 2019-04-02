@@ -3,13 +3,8 @@
 namespace test_socket {
 
     class Record {
-        [JsonProperty(PropertyName = "tstamp_sec")]
-        public long TstampSec {
-            set; get;
-        }
-
-        [JsonProperty(PropertyName = "tstamp_msec")]
-        public long TstampMsec {
+        [JsonProperty(PropertyName = "timestamp")]
+        public long Timestamp {
             set; get;
         }
 
