@@ -27,6 +27,7 @@
 
 /*define constants*/
 
+#define TIMER_COUNTDOWN 60*1000000
 //0 significa timer scattato
 #define TIMER_TRIGGERED   0
 //dichiaro la porta su cui voglio ricevere la configurazione
@@ -35,7 +36,7 @@
 #define WIFI_SSID "NotSoFastBau"
 #define WIFI_PASS "Vivailpolitecnico14!"
 //parametri della creazione socket
-#define IP_SERVER "192.168.1.8"
+#define IP_SERVER "192.168.1.14"
 #define SERVER_PORT "13000"
 //maschere per poter sniffare i pacchetti
 #define TYPESUBTYPE_MASK 0b0000000011111100
@@ -57,16 +58,23 @@ typedef struct {
 //frame WiFi IEEE 802.11
 typedef struct {
 	wifi_ieee80211_mac_hdr_t hdr;
-	uint8_t payload[0]; /* network data ended with 4 bytes csum (CRC32) */
+	uint8_t payload[]; /* network data ended with 4 bytes csum (CRC32) */
 } wifi_ieee80211_packet_t;
 //record contenete i campi di interesse dei pacchetti
+//typedef struct{
+//	char SSID[MAX_SSID_LENGTH];
+//	char MACADDR[18];
+//	int RSSI;
+//	char hash[33];
+//	time_t tstamp_sec;
+//	time_t tstamp_msec;
+//}record_t;
 typedef struct{
 	char SSID[MAX_SSID_LENGTH];
 	char MACADDR[18];
 	int RSSI;
 	char hash[33];
-	time_t tstamp_sec;
-	time_t tstamp_msec;
+	uint64_t timestamp;
 }record_t;
 
 /*prototipi funzioni*/
@@ -337,7 +345,7 @@ void create_timer(){
 	ESP_ERROR_CHECK( esp_timer_create(&timer_args, &timer) );
 
 	/* Start the timer */
-	ESP_ERROR_CHECK( esp_timer_start_once(timer, 10000000) );
+	ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
 
 	//fa partire la funzione che sarà in ascolto di eventi messi in coda dalla callback ad ogni scatto
 	xTaskCreate(timer_task, "timer_evt_task", 4096, NULL, 5, NULL);
@@ -409,7 +417,7 @@ static void timer_task(void *arg){
 				sniffaPacchetti();
 
 				//Restart the timer
-				ESP_ERROR_CHECK( esp_timer_start_once(timer, 10000000) );
+				ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
 				ESP_LOGI("TIMER-TASK", "Timer restarted, current val: %lld us", esp_timer_get_time());
 		}
 	}
@@ -484,7 +492,7 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 	const wifi_ieee80211_packet_t *ipkt = (wifi_ieee80211_packet_t *) ppkt->payload;
 	const wifi_ieee80211_mac_hdr_t *hdr = &ipkt->hdr;
 	char macaddr_str[18], ssid_str[MAX_SSID_LENGTH] = "";
-	int ssid_length=0;
+	int ssid_length = 0;
 	struct timeval now;
 
 	//hash temporaneo
@@ -498,27 +506,27 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 			ssid_length = ipkt->payload[1];
 			for(int i = 0; i < ssid_length; i++) ssid_str[i] = ipkt->payload[2+i];
 			ssid_str[ssid_length] = '\0';
+
 		}
 
 		//Prende la data di sistema di nuovo per marcare i pacchetti
-		gettimeofday(&now,NULL);
+		gettimeofday(&now, NULL);
 
 		//salvo nel record i dati scritti
 		macaddr_to_str(hdr->addr2, record.MACADDR);
-		memcpy(record.SSID,ssid_str,ssid_length);
-		record.RSSI=ppkt->rx_ctrl.rssi;
+		memcpy(record.SSID, ssid_str, ssid_length+1);
+		record.RSSI = ppkt->rx_ctrl.rssi;
 		//facciamo md5 del contenuto del pacchetto
 		md5((unsigned char *) ipkt, sizeof(*ipkt), hashtmp);
 		hash_to_str(hashtmp, record.hash);
 		//record.timestamp=ppkt->rx_ctrl.timestamp;
-		record.tstamp_sec=now.tv_sec;
-		record.tstamp_msec=now.tv_usec/1000;
+		record.timestamp = ((uint64_t) now.tv_sec)*1000 + now.tv_usec/1000;
 
 		//aggiungiamo nel JSON il pacchetto sniffato
 		add_json_record(record);
 
 		//stampiamo i pacchetti sniffati
-		ets_printf("TIMESTAMP %ld %ld PROBE CHAN=%02d, SEQ=%4x, RSSI=%d, ADDR=%s, SSID=%s\n",
+		ets_printf("TIMESTAMP s:%u ms:%u CHAN=%02d, SEQ=%4x, RSSI=%d, ADDR=%s, SSID='%s'\n",
 				now.tv_sec,
 				now.tv_usec/1000,
 				ppkt->rx_ctrl.channel,
@@ -574,8 +582,7 @@ void add_json_record(record_t r){
     cJSON_AddItemToObject(root, "MACADDR", cJSON_CreateString(r.MACADDR));
     cJSON_AddNumberToObject(root, "RSSI", r.RSSI);
     cJSON_AddItemToObject(root, "hash", cJSON_CreateString(r.hash));
-    cJSON_AddNumberToObject(root, "tstamp_sec", r.tstamp_sec);
-    cJSON_AddNumberToObject(root, "tstamp_msec", r.tstamp_msec);
+    cJSON_AddNumberToObject(root, "timestamp", r.timestamp);
     cJSON_AddItemToArray(data, root);
 
     return;
