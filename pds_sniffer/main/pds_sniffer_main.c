@@ -55,20 +55,14 @@ typedef struct {
 	uint8_t addr3[6]; /* filtering address */
 	unsigned sequence_ctrl:16;
 } wifi_ieee80211_mac_hdr_t;
+
 //frame WiFi IEEE 802.11
 typedef struct {
 	wifi_ieee80211_mac_hdr_t hdr;
 	uint8_t payload[]; /* network data ended with 4 bytes csum (CRC32) */
 } wifi_ieee80211_packet_t;
+
 //record contenete i campi di interesse dei pacchetti
-//typedef struct{
-//	char SSID[MAX_SSID_LENGTH];
-//	char MACADDR[18];
-//	int RSSI;
-//	char hash[33];
-//	time_t tstamp_sec;
-//	time_t tstamp_msec;
-//}record_t;
 typedef struct{
 	char SSID[MAX_SSID_LENGTH];
 	char MACADDR[18];
