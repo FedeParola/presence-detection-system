@@ -27,7 +27,9 @@
 
 /*define constants*/
 
-#define TIMER_COUNTDOWN 60*1000000
+#define CONF_MAX_RETRY_COUNT 10
+
+#define TIMER_COUNTDOWN 10*1000000
 //0 significa timer scattato
 #define TIMER_TRIGGERED   0
 //dichiaro la porta su cui voglio ricevere la configurazione
@@ -36,7 +38,6 @@
 #define WIFI_SSID "NotSoFastBau"
 #define WIFI_PASS "Vivailpolitecnico14!"
 //parametri della creazione socket
-#define IP_SERVER "192.168.1.14"
 #define SERVER_PORT "13000"
 //maschere per poter sniffare i pacchetti
 #define TYPESUBTYPE_MASK 0b0000000011111100
@@ -63,24 +64,25 @@ typedef struct {
 } wifi_ieee80211_packet_t;
 
 //record contenete i campi di interesse dei pacchetti
-typedef struct{
+typedef struct {
 	char SSID[MAX_SSID_LENGTH];
 	char MACADDR[18];
 	int RSSI;
 	char hash[33];
 	uint64_t timestamp;
-}record_t;
+} record_t;
 
 /*prototipi funzioni*/
 
 void impostaData(time_t timestampToSet);  							//imposta la data di sistema con il timestamp ricevuto
-void stampaTimestamp();												//stampa il timestamp della data di sistema attuale
-int riceviConfigurazione();											//aspettiamo una configurazione della schedina dal server
+int recv_configuration();											//aspettiamo una configurazione della schedina dal server
+int parse_configuration(char *buffer);								// Parse the configuration message and apply it
 void connectWIFI();													//prepara tutto per la connessione WIFI
 static esp_err_t event_handler(void *ctx, system_event_t *event);	//gestisce gli eventi del WIFI e se va tutto bene si collega
 void create_timer();												//creazione del timer
 static void timer_callback(void* arg);  							//funzione attivata quando scatta il timer -> setta la variabile evento a 0
 static void timer_task(void *arg);									//ferma lo sniffer -> apre e invia sul socket l'array JSON -> fa ripartire il timer e lo sniffing
+int create_ipv4_listen_socket();									// Create a listen socket
 int create_ipv4_socket_client();									//funzione che crea la connessione socket come client
 void sniffaPacchetti();												//iniziamo a sniffare instanziando un packet_handler ad ogni pacchetto ricevuto
 void unsetSniffaPacchetti();										//ferma lo sniffer --> gestire ancora bene il reset
@@ -89,12 +91,13 @@ char *macaddr_to_str(const uint8_t macaddr[6], char str[18]);		//converte il MAC
 void md5(unsigned char *data, int dataLen, unsigned char *hash);	//calcola hash md5 nel pacchetto
 char *hash_to_str(const unsigned char hash[16], char str[33]);		//funzione che converte il hash md5 in stringa in modo da poterlo salvare nel record
 void add_json_record(record_t r);									//crea il singolo JSON relativo al pacchetto ricevuto
-void json_delete();													//distrugge l'array JSON
 
 /*global variables definition*/
 
-//variabile per taggare i messaggi nel LOG
-static const char *TAG = "SNIFFER";
+/* Server connection parameters */
+char server_ip[16];
+char server_port[6];
+
 //dichiarazione del timer
 esp_timer_handle_t timer;
 xQueueHandle timer_queue;
@@ -112,23 +115,20 @@ cJSON *root,*data; 		//singolo JSON
 //int sniffedPackets=0; 	//numero di pacchetti sniffati mandati al termine della sessione di sniffing
 
 // Main application
-void app_main()
-{
-	time_t temp=1542291010;//solo debug
+void app_main() {
 
 	//disable the default wifi logging
 	esp_log_level_set("wifi", ESP_LOG_NONE);
 
-	/*
-	//ci mettiamo in ascolto sul socket TCP per ricevere una configurazione iniziale
-	while((riceviConfigurazione()==-1)){
-		printf("Initial configuration problem... Retrying!");
-	}
-	*/
-	//impostiamo una certa data e ora
-	impostaData(temp); //per ora a caso
 	//connessione al wifi
 	connectWIFI();
+
+	/* Ci mettiamo in ascolto sul socket TCP per ricevere una configurazione iniziale */
+	if (recv_configuration() != 0) {
+		ESP_LOGE("MAIN", "Initial configuration problem... Restarting!");
+		esp_restart();
+	}
+
 	//creiamo l'array di JSON
 	data = cJSON_CreateArray();
 	//creazione del timer
@@ -143,120 +143,205 @@ void impostaData(time_t timestampToSet){
 	    settimeofday(&now, NULL);
 }
 
-void stampaTimestamp(){
-	struct timeval now;
-	gettimeofday(&now, NULL);
+int create_ipv4_listen_socket() {
+	char *tag = "CONF";	// Tag for logging purposes
+
+	int sock;
+	struct sockaddr_in local_addr;
+
+	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_port = htons(CONFIGURATION_PORT);
+
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	if (sock < 0) {
+		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
+		return -1;
+	}
+
+	if (bind(sock, (struct sockaddr *) &local_addr, sizeof(local_addr)) != 0) {
+		ESP_LOGE(tag, "Socket unable to bind: errno %d", errno);
+		close(sock);
+		return -1;
+	}
+
+	if (listen(sock, 1) != 0) {
+		ESP_LOGE(tag, "Error occurred during listen: errno %d", errno);
+		close(sock);
+		return -1;
+	}
+
+	return sock;
 }
 
-int riceviConfigurazione(){
-	//TODO: completamente da testare. Scommentare roba nel main per farlo partire. Scrivere il codice del server.
+int parse_configuration(char *buffer) {
+	char *tag = "CONF";	// Tag for logging purposes
 
-	int no_error=1; 	//variabile che mi dice se non ci sono stati errori durante l'accept del socket
-	int recv_error=0;	//se si presentano errori durante la ricezione dei dati una volta accettato il socket
-	int count=0;		//conta i tentativi nel caso di errore recv
+	cJSON *conf_json, *field;
+	uint64_t timestamp;
+	int channel;
 
+	if (buffer == NULL) {
+		return -1;
+	}
+
+	/* Try to parse the configuration message */
+	conf_json = cJSON_Parse(buffer);
+	if(!cJSON_IsObject(conf_json)) {
+		ESP_LOGE(tag, "Error parsing the configuration json");
+		return -1;
+	}
+
+	/* Retrieve timestamp */
+	field = cJSON_GetObjectItem(conf_json, "timestamp");
+	if(!cJSON_IsNumber(field)) {
+		ESP_LOGE(tag, "Error parsing timestamp field");
+		return -1;
+	}
+	timestamp = (uint64_t) field->valuedouble;
+	impostaData(timestamp);
+
+	/* Retrieve server address */
+	field = cJSON_GetObjectItem(conf_json, "ipAddress");
+	if(!cJSON_IsString(field)) {
+		ESP_LOGE(tag, "Error parsing ipAddress field");
+		return -1;
+	}
+	strncpy(server_ip, field->valuestring, sizeof(server_ip));
+
+	/* Retrieve server port */
+	field = cJSON_GetObjectItem(conf_json, "port");
+	if(!cJSON_IsString(field)) {
+		ESP_LOGE(tag, "Error parsing port field");
+		return -1;
+	}
+	strncpy(server_port, field->valuestring, sizeof(server_port));
+
+	/* Retrieve sniffing channel */
+	field = cJSON_GetObjectItem(conf_json, "channel");
+	if(!cJSON_IsNumber(field)) {
+		ESP_LOGE(tag, "Error parsing channel field");
+		return -1;
+	}
+	channel = field->valueint;
+	esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+
+	cJSON_Delete(conf_json);
+
+	ESP_LOGI(tag, "Configuration correctly applied:\n"
+			"timestamp = %llu\n"
+			"ip address = %s\n"
+			"port = %s\n"
+			"channel = %u", timestamp, server_ip, server_port, channel);
+
+	return 0;
+}
+
+int recv_configuration() {
+	char *tag = "CONF";	// Tag for logging purposes
+
+	int received;	// Tells if the configuration was correctly received
+	int error; 		// Tells if there were errors during the reception or parsing of the configuration
+	int count;		// N of attempts to receive a configuration
+
+	int nrecv;				// Bytes received in a single recv
+	int msglen;				// Total size of the received message
 	char rx_buffer[128];
+	char ack = 'A';
+
+	int listen_sock;
+	struct sockaddr_in remote_addr;
+	size_t addrlen;
 	char addr_str[128];
-	int addr_family;
-	int ip_protocol;
 
-	struct sockaddr_in destAddr;
-	destAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	destAddr.sin_family = AF_INET;
-	destAddr.sin_port = htons(CONFIGURATION_PORT);
-	addr_family = AF_INET;
-	ip_protocol = IPPROTO_IP;
-	inet_ntoa_r(destAddr.sin_addr, addr_str, sizeof(addr_str) - 1);
-
-	int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-	if (listen_sock < 0) {
-		ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+	/* Create a listening socket */
+	listen_sock = create_ipv4_listen_socket();
+	if(listen_sock == -1) {
 		return -1;
 	}
-	ESP_LOGI(TAG, "Socket created");
 
-	int err = bind(listen_sock, (struct sockaddr *)&destAddr, sizeof(destAddr));
-	if (err != 0) {
-		ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
-		return -1;
-	}
-	ESP_LOGI(TAG, "Socket binded");
+	ESP_LOGI(tag, "Socket listening...");
 
-	err = listen(listen_sock, 1);
-	if (err != 0) {
-		ESP_LOGE(TAG, "Error occured during listen: errno %d", errno);
-		return -1;
-	}
-	ESP_LOGI(TAG, "Socket listening");
+	/* Receive incoming connections */
+	received = 0;
+	count = 0;
 
-	struct sockaddr_in sourceAddr;
-	uint addrLen = sizeof(sourceAddr);
+	while (!received && count < CONF_MAX_RETRY_COUNT) {
+		count++;
 
-	//accettazione dei socket
-	while(no_error && count < 10){
-		//rimetto i flag a posto
-		no_error=1;
-		recv_error=0;
+		/* Accept an incoming connection */
+		addrlen = sizeof(remote_addr);
+		int sock = accept(listen_sock, (struct sockaddr *) &remote_addr, &addrlen);
 
-		//faccio l'accept
-		int sock = accept(listen_sock, (struct sockaddr *)&sourceAddr, &addrLen);
 		if (sock < 0) {
-			ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
-			no_error=0;
-		}
+			ESP_LOGE(tag, "Unable to accept connection: errno %d", errno);
 
-		if(no_error){
-			ESP_LOGI(TAG, "Socket accepted");
-			while (1) {
-				int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-				// Error occured during receiving
-				if (len < 0) {
-					ESP_LOGE(TAG, "recv failed: errno %d", errno);
-					recv_error=1;
-					count++;
-					break;
-				}
-				// Connection closed
-				else if (len == 0) {
-					ESP_LOGI(TAG, "Connection closed");
-					recv_error=1;
-					count++;
-					break;
-				}
-				// Data received
-				else {
-				// Get the sender's ip address as string
-					inet_ntoa_r(((struct sockaddr_in *)&sourceAddr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
+		} else {
+			/* Print remote host information */
+			inet_ntoa_r(((struct sockaddr_in *) &remote_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str)-1);
+			ESP_LOGI(tag, "Accepted connection from %s", addr_str);
 
-					rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-					ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
-					ESP_LOGI(TAG, "%s", rx_buffer);
+			msglen = 0;
+			error = 0;
+			while (!received && !error) {
+				nrecv = recv(sock, rx_buffer+msglen, sizeof(rx_buffer)-msglen-1, 0);
+
+				/* Error receiving data */
+				if (nrecv < 0) {
+					ESP_LOGE(tag, "recv failed: errno %d", errno);
+					error = 1;
+
+				/* Connection closed before message terminated */
+				} else if (nrecv == 0) {
+					ESP_LOGE(tag, "Connection closed prematurely");
+					error = 1;
+
+				/* Data received */
+				} else {
+					msglen += nrecv;
+
+					/* Check if message is terminated */
+					if (rx_buffer[msglen-1] == 0) {
+						rx_buffer[msglen] = '\0';
+						ESP_LOGI(tag, "Received message:\n%s", rx_buffer);
+
+						/* Try to parse and apply the configuration */
+						if(parse_configuration(rx_buffer) == 0) {
+
+							/* Send ACK */
+							if (send(sock, &ack, sizeof(ack), 0) != sizeof(ack)) {
+								ESP_LOGE(tag, "Error sending the acknowledgement");
+								error = 1;
+
+							} else {
+								received = 1;
+							}
+
+						} else {
+							error = 1;
+						}
+					}
 				}
 			}
 
-
-			if(recv_error){ //se ci sono stati errori nella recv
-				no_error=0;	//signicica che il socket listening deve rimanere ancora in ascolto
-			}
-
-			//chiudo il socket accettato
-			ESP_LOGE(TAG, "Shutting down socket");
+			/* Close the connected socket */
 			close(sock);
 		}
-
-
 	}
 
-	if(count>=10){
-		ESP_LOGE(TAG, "Superato i 10 tentativi di fare recv");
-		return -1;
+	if(count >= CONF_MAX_RETRY_COUNT){
+		ESP_LOGE(tag, "Exceeded max number of configuration attempts");
 	}
 
-	//chiudo il socket in ascolto
-	ESP_LOGE(TAG, "Shutting down socket");
+	/* Close the listening socket */
+	ESP_LOGI(tag, "Shutting down socket");
 	close(listen_sock);
 
-	return 1;
+	if (received) {
+		return 0;
+	} else {
+		return -1;
+	}
 }
 
 void connectWIFI(){
@@ -279,12 +364,12 @@ void connectWIFI(){
 		ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
 		// configure the wifi connection and start the interface
-			wifi_config_t wifi_config = {
-			       .sta = {
-			           .ssid = WIFI_SSID,
-			           .password = WIFI_PASS,
-			       },
-			   };
+		wifi_config_t wifi_config = {
+			   .sta = {
+				   .ssid = WIFI_SSID,
+				   .password = WIFI_PASS,
+			   },
+		   };
 
 		ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
 	    ESP_ERROR_CHECK(esp_wifi_start());
@@ -302,6 +387,12 @@ void connectWIFI(){
 		printf("IP Address:  %s\n", ip4addr_ntoa(&ip_info.ip));
 		printf("Subnet mask: %s\n", ip4addr_ntoa(&ip_info.netmask));
 		printf("Gateway:     %s\n", ip4addr_ntoa(&ip_info.gw));
+
+		/* DEBUG: check channel */
+		uint8_t channel;
+		wifi_second_chan_t second;
+		ESP_ERROR_CHECK( esp_wifi_get_channel(&channel, &second) );
+		ESP_LOGI("CONN", "Channel: %u", channel);
 
 }
 
@@ -402,7 +493,7 @@ static void timer_task(void *arg){
 				impostaData(cJSON_GetObjectItem(serverResponse,"timestamp")->valueint);
 
 				//distruggiamo l'array JSON appena mandato
-				json_delete();
+				cJSON_Delete(data);
 
 				//creiamo un nuovo array JSON
 				data = cJSON_CreateArray();
@@ -425,7 +516,7 @@ int create_ipv4_socket_client(){
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
 
-  int err = getaddrinfo(IP_SERVER, SERVER_PORT, &hints, &res);
+  int err = getaddrinfo(server_ip, server_port, &hints, &res);
 
   if(err != 0 || res == NULL) {
     printf("DNS lookup failed err=%d res=%p\n", err, res);
@@ -580,8 +671,4 @@ void add_json_record(record_t r){
     cJSON_AddItemToArray(data, root);
 
     return;
-}
-
-void json_delete(){
-	cJSON_Delete(data);
 }
