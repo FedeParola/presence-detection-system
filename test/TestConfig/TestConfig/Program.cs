@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
+//TODO: gestire le eccezioni
 namespace TestConfig
 {
     class Program
@@ -15,6 +16,11 @@ namespace TestConfig
         //Define Ack message 
         private const String ackMsg = "A";
         private const int ackSize = 1;
+
+        //Define the port where the server waits for connections from the esp32 clients and the channel used by the esp32 clients when sniffing
+        //TODO: poi saranno da inserire via interfaccia grafica dall'utente e non definite come costanti
+        private const String listeningPort = "13000";
+        private const Int16 channel = 1;
         static void Main(string[] args)
         {
             // Connect to the esp32
@@ -32,17 +38,18 @@ namespace TestConfig
             //Buffer to store data to send/receive
             Byte[] data = new Byte[256];
 
-            // Get the current timestamp and create the configuration object
             JsonSerializer serializer = new JsonSerializer();
-            Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds());
+            // Get the current timestamp and the local IP address create the configuration object
+            IPEndPoint localEndPoint = client.Client.LocalEndPoint as IPEndPoint;
+            Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(), localEndPoint.Address.ToString(), listeningPort, channel);
 
             // Set a 10 seconds timeout when receiving the ack
             netStream.ReadTimeout = 10 * 1000;
             //Flag needed when receiving the ack from the esp32
             bool retry;
 
-            //TODO: TESTARE L'APP QUANDO L'ACK NON VIENE RICEVUTO E SCATTA IL TIMEOUT (MA CONNESSIONE
-            //ANCORA APERTA) E QUANDO IL SERVER (ESP32) CHIUDE LA CONNESSIONE PRIMA DI INVIARE L'ACK
+            /*TODO: testare l'app quando l'ack non viene ricevuto e scatta il timeout (ma connessione
+            ancora aperta) e quando il server (ESP32) chiude la connessione prima di inviare l'ack*/
             do
             {
                 retry = false;
@@ -57,6 +64,7 @@ namespace TestConfig
                     netStream.WriteByte(0);
 
                     //Receive ack
+                    //TODO: controllare che l'ACK sia il msg giusto
                     if (netStream.Read(data, 0, ackSize) == 0)
                     {
                         // Close everything
