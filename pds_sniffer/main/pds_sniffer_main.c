@@ -19,33 +19,35 @@
 #include <time.h>
 #include <sys/time.h>
 
-/*per il debug*/
+/*debug-terminal commands
+	cd ~/esp/presence-detection-system/pds_sniffer
+	make flash
+	make monitor
+*/
+/*
+ * TODO: make sniffing on a selected channel work
+ */
 
-//cd ~/esp/hello_world
-//make flash
-//make monitor
+/*constants definition*/
 
-/*define constants*/
-
-#define CONF_MAX_RETRY_COUNT 10
-
-#define TIMER_COUNTDOWN 10*1000000
-//0 significa timer scattato
-#define TIMER_TRIGGERED   0
-//dichiaro la porta su cui voglio ricevere la configurazione
-#define CONFIGURATION_PORT 13000
-//parametri di connessione al WIFI
-#define WIFI_SSID "NotSoFastBau"
-#define WIFI_PASS "Vivailpolitecnico14!"
-//parametri della creazione socket
-#define SERVER_PORT "13000"
-//maschere per poter sniffare i pacchetti
+//initial configuration parameters
+#define CONF_MAX_RETRY_COUNT 10      			//define how many times ESP tries to get the initial configuration
+#define CONFIGURATION_PORT 13000				//declaration of the port number on which the initial configuration will arrive
+//timer
+#define TIMER_COUNTDOWN 10*1000000				//duration of the timer (10 seconds at the moment)
+#define TIMER_TRIGGERED   0						//used in variable "event" -> 0 means that the timer has been triggered
+//parameters for the WIFI connection
+#define WIFI_SSID  "FunBox2-97E6"				/*"NotSoFastBau"*/
+#define WIFI_PASS  "19A21975662AACD3563C37F976" /*"Vivailpolitecnico14!"*/
+//socket client
+#define SERVER_PORT "13000"						//port number of the desktop application
+//masks for packet sniffing
 #define TYPESUBTYPE_MASK 0b0000000011111100
 #define TYPE_PROBE 		 0b0000000001000000
-//costante usata nella packet handler
+//packet handler constant
 #define MAX_SSID_LENGTH 256
 
-/*type definitions*/
+/*types definition*/
 
 //header frame WiFi IEEE 802.11
 typedef struct {
@@ -63,7 +65,7 @@ typedef struct {
 	uint8_t payload[]; /* network data ended with 4 bytes csum (CRC32) */
 } wifi_ieee80211_packet_t;
 
-//record contenete i campi di interesse dei pacchetti
+//record to store useful data from the sniffed packets
 typedef struct {
 	char SSID[MAX_SSID_LENGTH];
 	char MACADDR[18];
@@ -72,25 +74,25 @@ typedef struct {
 	uint64_t timestamp;
 } record_t;
 
-/*prototipi funzioni*/
+/*prototypes definition*/
 
-void impostaData(time_t timestampToSet);  							//imposta la data di sistema con il timestamp ricevuto
-int recv_configuration();											//aspettiamo una configurazione della schedina dal server
-int parse_configuration(char *buffer);								// Parse the configuration message and apply it
-void connectWIFI();													//prepara tutto per la connessione WIFI
-static esp_err_t event_handler(void *ctx, system_event_t *event);	//gestisce gli eventi del WIFI e se va tutto bene si collega
-void create_timer();												//creazione del timer
-static void timer_callback(void* arg);  							//funzione attivata quando scatta il timer -> setta la variabile evento a 0
-static void timer_task(void *arg);									//ferma lo sniffer -> apre e invia sul socket l'array JSON -> fa ripartire il timer e lo sniffing
-int create_ipv4_listen_socket();									// Create a listen socket
-int create_ipv4_socket_client();									//funzione che crea la connessione socket come client
-void sniffaPacchetti();												//iniziamo a sniffare instanziando un packet_handler ad ogni pacchetto ricevuto
-void unsetSniffaPacchetti();										//ferma lo sniffer --> gestire ancora bene il reset
-void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type);	//funzione richiamata ogni volta che viene ricevuto un pacchetto
-char *macaddr_to_str(const uint8_t macaddr[6], char str[18]);		//converte il MAC ADDRESS in stringa
-void md5(unsigned char *data, int dataLen, unsigned char *hash);	//calcola hash md5 nel pacchetto
-char *hash_to_str(const unsigned char hash[16], char str[33]);		//funzione che converte il hash md5 in stringa in modo da poterlo salvare nel record
-void add_json_record(record_t r);									//crea il singolo JSON relativo al pacchetto ricevuto
+void set_date(time_t timestampToSet);  								//sets the system date with the value of the receved timestamp
+int recv_configuration();											//makes the first configuration of the ESP from the Desktop app
+int parse_configuration(char *buffer);								//parse the configuration message and apply it
+void connect_wifi();												//prepare the wifi connection
+static esp_err_t event_handler(void *ctx, system_event_t *event);	//manage wifi events, if no problems it connect to the wifi
+void create_timer();												//create timer
+static void timer_callback(void* arg);  							//procedure called every time the timer is triggered -> sets the event variable to the TIMER_TRIGGERED value (0)
+static void timer_task(void *arg);									//stops the sniffer task -> open and send on a socket the JSON array -> restart timer and sniffer
+int create_ipv4_listen_socket();									//create a listening socket
+int create_ipv4_socket_client();									//create a client socket connection
+void set_packets_sniffer();											//starts to sniffing packets -> call the packet_handler at every received packet
+void unset_packets_sniffer();										//stops the sniffer
+void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type);	//function called every time a packet has been sniffed
+char *macaddr_to_str(const uint8_t macaddr[6], char str[18]);		//convert a MAC ADDRESS into string
+void md5(unsigned char *data, int dataLen, unsigned char *hash);	//calculate md5 hash of a packet
+char *hash_to_str(const unsigned char hash[16], char str[33]);		//converts the md5 hash into string so that we can store it
+void add_json_record(record_t r);									//create a single JSON record of the received packet
 
 /*global variables definition*/
 
@@ -98,143 +100,48 @@ void add_json_record(record_t r);									//crea il singolo JSON relativo al pac
 char server_ip[16];
 char server_port[6];
 
-//dichiarazione del timer
+//timer declarations
 esp_timer_handle_t timer;
 xQueueHandle timer_queue;
 // Event group
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
-//flag per l'impostazione della modalita promiscus
+//flag to set the promiscus mode
 int firstSet=1;
-//dichiariamo il record
+//record declaration
 record_t record;
 //socket
 int sock;
 //JSON
-cJSON *root,*data; 		//singolo JSON
-//int sniffedPackets=0; 	//numero di pacchetti sniffati mandati al termine della sessione di sniffing
+cJSON *root,*data; 			//the single JSON
 
-// Main application
+//Main application
 void app_main() {
 
 	//disable the default wifi logging
 	esp_log_level_set("wifi", ESP_LOG_NONE);
 
-	//connessione al wifi
-	connectWIFI();
+	//connect to the wifi
+	connect_wifi();
 
-	/* Ci mettiamo in ascolto sul socket TCP per ricevere una configurazione iniziale */
+	/* Starts to listen a TCP socket in order to receive the initial configuration */
 	if (recv_configuration() != 0) {
 		ESP_LOGE("MAIN", "Initial configuration problem... Restarting!");
 		esp_restart();
 	}
 
-	//creiamo l'array di JSON
+	//JSON array creation
 	data = cJSON_CreateArray();
-	//creazione del timer
+	//timer creation
 	create_timer();
-	//sniffiamo qualcosa
-	sniffaPacchetti();
+	//start to sniffing packets
+	set_packets_sniffer();
 
 }
 
-void impostaData(time_t timestampToSet){
+void set_date(time_t timestampToSet){
 	    struct timeval now = { .tv_sec = timestampToSet };
 	    settimeofday(&now, NULL);
-}
-
-int create_ipv4_listen_socket() {
-	char *tag = "CONF";	// Tag for logging purposes
-
-	int sock;
-	struct sockaddr_in local_addr;
-
-	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	local_addr.sin_family = AF_INET;
-	local_addr.sin_port = htons(CONFIGURATION_PORT);
-
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-	if (sock < 0) {
-		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
-		return -1;
-	}
-
-	if (bind(sock, (struct sockaddr *) &local_addr, sizeof(local_addr)) != 0) {
-		ESP_LOGE(tag, "Socket unable to bind: errno %d", errno);
-		close(sock);
-		return -1;
-	}
-
-	if (listen(sock, 1) != 0) {
-		ESP_LOGE(tag, "Error occurred during listen: errno %d", errno);
-		close(sock);
-		return -1;
-	}
-
-	return sock;
-}
-
-int parse_configuration(char *buffer) {
-	char *tag = "CONF";	// Tag for logging purposes
-
-	cJSON *conf_json, *field;
-	uint64_t timestamp;
-	int channel;
-
-	if (buffer == NULL) {
-		return -1;
-	}
-
-	/* Try to parse the configuration message */
-	conf_json = cJSON_Parse(buffer);
-	if(!cJSON_IsObject(conf_json)) {
-		ESP_LOGE(tag, "Error parsing the configuration json");
-		return -1;
-	}
-
-	/* Retrieve timestamp */
-	field = cJSON_GetObjectItem(conf_json, "timestamp");
-	if(!cJSON_IsNumber(field)) {
-		ESP_LOGE(tag, "Error parsing timestamp field");
-		return -1;
-	}
-	timestamp = (uint64_t) field->valuedouble;
-	impostaData(timestamp);
-
-	/* Retrieve server address */
-	field = cJSON_GetObjectItem(conf_json, "ipAddress");
-	if(!cJSON_IsString(field)) {
-		ESP_LOGE(tag, "Error parsing ipAddress field");
-		return -1;
-	}
-	strncpy(server_ip, field->valuestring, sizeof(server_ip));
-
-	/* Retrieve server port */
-	field = cJSON_GetObjectItem(conf_json, "port");
-	if(!cJSON_IsString(field)) {
-		ESP_LOGE(tag, "Error parsing port field");
-		return -1;
-	}
-	strncpy(server_port, field->valuestring, sizeof(server_port));
-
-	/* Retrieve sniffing channel */
-	field = cJSON_GetObjectItem(conf_json, "channel");
-	if(!cJSON_IsNumber(field)) {
-		ESP_LOGE(tag, "Error parsing channel field");
-		return -1;
-	}
-	channel = field->valueint;
-	esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
-
-	cJSON_Delete(conf_json);
-
-	ESP_LOGI(tag, "Configuration correctly applied:\n"
-			"timestamp = %llu\n"
-			"ip address = %s\n"
-			"port = %s\n"
-			"channel = %u", timestamp, server_ip, server_port, channel);
-
-	return 0;
 }
 
 int recv_configuration() {
@@ -344,7 +251,70 @@ int recv_configuration() {
 	}
 }
 
-void connectWIFI(){
+int parse_configuration(char *buffer) {
+	char *tag = "CONF";	// Tag for logging purposes
+
+	cJSON *conf_json, *field;
+	uint64_t timestamp;
+	int channel;
+
+	if (buffer == NULL) {
+		return -1;
+	}
+
+	/* Try to parse the configuration message */
+	conf_json = cJSON_Parse(buffer);
+	if(!cJSON_IsObject(conf_json)) {
+		ESP_LOGE(tag, "Error parsing the configuration json");
+		return -1;
+	}
+
+	/* Retrieve timestamp */
+	field = cJSON_GetObjectItem(conf_json, "timestamp");
+	if(!cJSON_IsNumber(field)) {
+		ESP_LOGE(tag, "Error parsing timestamp field");
+		return -1;
+	}
+	timestamp = (uint64_t) field->valuedouble;
+	set_date(timestamp);
+
+	/* Retrieve server address */
+	field = cJSON_GetObjectItem(conf_json, "ipAddress");
+	if(!cJSON_IsString(field)) {
+		ESP_LOGE(tag, "Error parsing ipAddress field");
+		return -1;
+	}
+	strncpy(server_ip, field->valuestring, sizeof(server_ip));
+
+	/* Retrieve server port */
+	field = cJSON_GetObjectItem(conf_json, "port");
+	if(!cJSON_IsString(field)) {
+		ESP_LOGE(tag, "Error parsing port field");
+		return -1;
+	}
+	strncpy(server_port, field->valuestring, sizeof(server_port));
+
+	/* Retrieve sniffing channel */
+	field = cJSON_GetObjectItem(conf_json, "channel");
+	if(!cJSON_IsNumber(field)) {
+		ESP_LOGE(tag, "Error parsing channel field");
+		return -1;
+	}
+	channel = field->valueint;
+	esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+
+	cJSON_Delete(conf_json);
+
+	ESP_LOGI(tag, "Configuration correctly applied:\n"
+			"timestamp = %llu\n"
+			"ip address = %s\n"
+			"port = %s\n"
+			"channel = %u", timestamp, server_ip, server_port, channel);
+
+	return 0;
+}
+
+void connect_wifi(){
 		// initialize NVS
 		ESP_ERROR_CHECK(nvs_flash_init());
 
@@ -402,8 +372,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event){
 		case SYSTEM_EVENT_STA_START:
 			esp_wifi_connect();
 			break;
-
-		case SYSTEM_EVENT_STA_GOT_IP://serve per gestire il dhcp, se usiamo gli indirizzi ip statici di può eliminare
+		//used for dhcp, using static ip addresses it could be eliminated
+		case SYSTEM_EVENT_STA_GOT_IP:
 			xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
 			break;
 
@@ -419,7 +389,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event){
 }
 
 void create_timer(){
-	//crea una coda di parametri che verranno passati dalla callback al task effettivo
+	//create a queue of parameters the will be passed from the callback to the actual task
 	timer_queue = xQueueCreate(10, sizeof(int));
 
 	/* Create a one-shot timer which will fire after 10s */
@@ -432,48 +402,48 @@ void create_timer(){
 	/* Start the timer */
 	ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
 
-	//fa partire la funzione che sarà in ascolto di eventi messi in coda dalla callback ad ogni scatto
+	//start the procedure tha will be listening for events putted in the queue by the callback (one every trigger of the timer)
 	xTaskCreate(timer_task, "timer_evt_task", 4096, NULL, 5, NULL);
 }
 
 static void timer_callback(void* arg) {
 	ESP_LOGI("TIMER", "Timer called, current val: %lld us", esp_timer_get_time());
 
-	int evento = TIMER_TRIGGERED;
+	int event = TIMER_TRIGGERED;
 
 	/* Now just send the event data back to the main program task */
-	xQueueSendFromISR(timer_queue, &evento, NULL);
+	xQueueSendFromISR(timer_queue, &event, NULL);
 }
 
 static void timer_task(void *arg){
-	int evento;
-	char recv_buf[100]; 	//buffer in cui finiranno i dati letti in risposta dal server
-	int r;					//numeri di caratteri letti dalla read ad ogni botta
-	int readChars=0;		//lunghezza della stringa ricevuta, ovvero quanta roba ho messo nel recv_buf, ovvero quanti caratteri ho letto
-	cJSON *serverResponse;	//JSON di risposta del server
-	char *data_json;		//stringa di JSON array
+	int event;
+	char recv_buf[100]; 	//buffer to save response data coming from the desktop app
+	int r;					//number of chars read by the read funtion at every try
+	int readChars=0;		//received string length, how mane chars putted in recv_buf, number of total read chars
+	cJSON *serverResponse;	//JSON received from the desktop app
+	char *data_json;		//string of JSON array
 
 	while(1){
-		xQueueReceive(timer_queue, &evento, portMAX_DELAY);
-		if (evento == TIMER_TRIGGERED) {
-				//pezzo con la gestione dell'invio dei pacchetti
+		xQueueReceive(timer_queue, &event, portMAX_DELAY);
+		if (event == TIMER_TRIGGERED) {
+				//packet sending
 
-				//fermiamo lo sniffer
-				unsetSniffaPacchetti();
+				//stop the sniffer
+				unset_packets_sniffer();
 
-				//creazione del socket
+				//create a socket
 				sock=create_ipv4_socket_client();
 
-				//convertiamo il JSON in stringa
+				//convert JSON in a string
 				data_json = cJSON_Print(data);
-				//mandiamo i dati
+				//mandiamo the data
 				if(write(sock, data_json, strlen(data_json))==strlen(data_json)){
-					ets_printf("pacchetti mandati\n");
+					ets_printf("packets has been sended\n");
 				}
-				//distruggiamo subito la stringa creata
+				//destroy the created string
 				free(data_json);
 
-				//ricevo risposta dal server
+				//response receive from the desktop app
 				memset(recv_buf, 0, sizeof(recv_buf));
 				readChars=0;
 				do {
@@ -482,30 +452,61 @@ static void timer_task(void *arg){
 				} while(r > 0);
 				recv_buf[readChars]='\0';
 
-				//passo la stringa letta ad un ogetto JSON
+				//pass the read string to a JSON object
 				serverResponse=cJSON_Parse(recv_buf);
 
-				//chiudiamo il socket
+				//close the socket
 				close(sock);
-				ets_printf("socket chiuso\n");
+				ets_printf("socket has been closed\n");
 
-				//imposto la dato di sistema con il nuovo valore ricevuto in risposta dal server
-				impostaData(cJSON_GetObjectItem(serverResponse,"timestamp")->valueint);
+				//set the new system date with the value received from the desktop app
+				set_date(cJSON_GetObjectItem(serverResponse,"timestamp")->valueint);
 
-				//distruggiamo l'array JSON appena mandato
+				//destroy the JSON array
 				cJSON_Delete(data);
 
-				//creiamo un nuovo array JSON
+				//create a new JSON array
 				data = cJSON_CreateArray();
 
-				//facciamo ripartire lo sniffer
-				sniffaPacchetti();
+				//restart the sniffer
+				set_packets_sniffer();
 
 				//Restart the timer
 				ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
 				ESP_LOGI("TIMER-TASK", "Timer restarted, current val: %lld us", esp_timer_get_time());
 		}
 	}
+}
+
+int create_ipv4_listen_socket() {
+	char *tag = "CONF";	// Tag for logging purposes
+
+	int sock;
+	struct sockaddr_in local_addr;
+
+	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_port = htons(CONFIGURATION_PORT);
+
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	if (sock < 0) {
+		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
+		return -1;
+	}
+
+	if (bind(sock, (struct sockaddr *) &local_addr, sizeof(local_addr)) != 0) {
+		ESP_LOGE(tag, "Socket unable to bind: errno %d", errno);
+		close(sock);
+		return -1;
+	}
+
+	if (listen(sock, 1) != 0) {
+		ESP_LOGE(tag, "Error occurred during listen: errno %d", errno);
+		close(sock);
+		return -1;
+	}
+
+	return sock;
 }
 
 int create_ipv4_socket_client(){
@@ -555,7 +556,7 @@ int create_ipv4_socket_client(){
   return l_sock;
 }
 
-void sniffaPacchetti(){
+void set_packets_sniffer(){
 	if(firstSet){
 		wifi_promiscuous_filter_t filter = {.filter_mask=WIFI_PROMIS_FILTER_MASK_MGMT};
 		/* enable promiscuous mode and set packet handler */
@@ -564,11 +565,11 @@ void sniffaPacchetti(){
 
 		firstSet=0;
 	}
-	//impostiamo la funzione che verrà chiamata ad ogni pacchetto ricevuto
+	//sets the function that will be called at every received packet
 	ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(&packet_handler));
 }
 
-void unsetSniffaPacchetti(){
+void unset_packets_sniffer(){
 	ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(NULL));
 }
 
@@ -580,7 +581,7 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 	int ssid_length = 0;
 	struct timeval now;
 
-	//hash temporaneo
+	//temp hash
 	unsigned char hashtmp[16];
 
 	/* check if it is a probe request */
@@ -594,23 +595,22 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 
 		}
 
-		//Prende la data di sistema di nuovo per marcare i pacchetti
+		//takes the system date again to mark the packets
 		gettimeofday(&now, NULL);
 
-		//salvo nel record i dati scritti
+		//save data in the record
 		macaddr_to_str(hdr->addr2, record.MACADDR);
 		memcpy(record.SSID, ssid_str, ssid_length+1);
 		record.RSSI = ppkt->rx_ctrl.rssi;
-		//facciamo md5 del contenuto del pacchetto
+		//make hash md5 of the packet content
 		md5((unsigned char *) ipkt, sizeof(*ipkt), hashtmp);
 		hash_to_str(hashtmp, record.hash);
-		//record.timestamp=ppkt->rx_ctrl.timestamp;
 		record.timestamp = ((uint64_t) now.tv_sec)*1000 + now.tv_usec/1000;
 
-		//aggiungiamo nel JSON il pacchetto sniffato
+		//add to JSON the sniffed packet
 		add_json_record(record);
 
-		//stampiamo i pacchetti sniffati
+		//dispay of the monitor the sniffer packet
 		ets_printf("TIMESTAMP s:%u ms:%u CHAN=%02d, SEQ=%4x, RSSI=%d, ADDR=%s, SSID='%s'\n",
 				now.tv_sec,
 				now.tv_usec/1000,
