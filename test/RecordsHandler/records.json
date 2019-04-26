@@ -1,0 +1,72 @@
+[
+    {
+        "timestamp": 0,
+        "SSID": "SSID0",
+        "MACADDR": "MAC0",
+        "RSSI": 0,
+        "hash": "HASH0"
+    },
+    {
+        "timestamp": 1,
+        "SSID": "SSID1",
+        "MACADDR": "MAC1",
+        "RSSI": 1,
+        "hash": "HASH1"
+    },
+    {
+        "timestamp": 2,
+        "SSID": "SSID2",
+        "MACADDR": "MAC2",
+        "RSSI": 2,
+        "hash": "HASH2"
+    },
+    {
+        "timestamp": 3,
+        "SSID": "SSID3",
+        "MACADDR": "MAC3",
+        "RSSI": 3,
+        "hash": "HASH3"
+    },
+    {
+        "timestamp": 4,
+        "SSID": "SSID4",
+        "MACADDR": "MAC4",
+        "RSSI": 4,
+        "hash": "HASH4"
+    },
+    {
+        "timestamp": 5,
+        "SSID": "SSID5",
+        "MACADDR": "MAC5",
+        "RSSI": 5,
+        "hash": "HASH5"
+    },
+    {
+        "timestamp": 6,
+        "SSID": "SSID6",
+        "MACADDR": "MAC6",
+        "RSSI": 6,
+        "hash": "HASH6"
+    },
+    {
+        "timestamp": 7,
+        "SSID": "SSID7",
+        "MACADDR": "MAC7",
+        "RSSI": 7,
+        "hash": "HASH7"
+    },
+    {
+        "timestamp": 8,
+        "SSID": "SSID8",
+        "MACADDR": "MAC8",
+        "RSSI": 8,
+        "hash": "HASH8"
+    },
+    {
+        "timestamp": 9,
+        "SSID": "SSID9",
+        "MACADDR": "MAC9",
+        "RSSI": 9,
+        "hash": "HASH9"
+    }
+]
