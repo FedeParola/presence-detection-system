@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+/// <summary>
+/// A point in 2-dimensional space represented by its xy coordinates.
+/// </summary>
 namespace Trilateration {
     public class Point {
         public double X { get; }

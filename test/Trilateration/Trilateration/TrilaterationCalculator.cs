@@ -5,9 +5,16 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace Trilateration {
+
+    /// <summary>
+    /// Approximates the position of a point given 2 or more measurements of its distance from different points.
+    /// </summary>
     class TrilaterationCalculator {
         private List<Measurement> measurements = new List<Measurement>();
 
+        /// <summary>
+        /// Adds a measurement used to locate the point.
+        /// </summary>
         public void AddMeasurement(Measurement m) {
             if(m != null) {
                 measurements.Add(m);
@@ -18,12 +25,15 @@ namespace Trilateration {
             return Math.Sqrt((x0-x1)*(x0-x1) + (y0-y1)*(y0-y1));
         }
 
-        private void Residues(double[] x, double[] fi, object obj) {
+        private void Residuals(double[] x, double[] fi, object obj) {
             for (int i = 0; i < measurements.Count; i++) {
                 fi[i] = Distance(x[0], x[1], measurements[i].Origin.X, measurements[i].Origin.Y) - measurements[i].Distance;
             }
         }
 
+        /// <summary>
+        /// Finds the point that minimizes the difference between its distance from the origin of every measurement and the measured distance.
+        /// </summary>
         public Point Compute() {
             /* Check if there are enough measurements */
             if (measurements.Count < 2) {
@@ -31,7 +41,7 @@ namespace Trilateration {
             }
 
             double[] x = new double[] { 0, 0 }; // Starting point
-            double epsx = 0.0000000001;         // Stop criterion
+            double epsx = 0.000001;             // Stop criterion
             alglib.minlmstate state;
             alglib.minlmreport rep;
 
@@ -44,7 +54,7 @@ namespace Trilateration {
             alglib.minlmsetcond(state, epsx, 0);
 
             /* Optimize */
-            alglib.minlmoptimize(state, Residues, null, null);
+            alglib.minlmoptimize(state, Residuals, null, null);
 
             /* Get optimization results */
             alglib.minlmresults(state, out x, out rep);
