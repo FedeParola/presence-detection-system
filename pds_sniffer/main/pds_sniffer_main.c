@@ -34,11 +34,10 @@
 #define CONF_MAX_RETRY_COUNT 10      			//define how many times ESP tries to get the initial configuration
 #define CONFIGURATION_PORT 13000				//declaration of the port number on which the initial configuration will arrive
 //timer
-#define TIMER_COUNTDOWN 10*1000000				//duration of the timer (10 seconds at the moment)
 #define TIMER_TRIGGERED   0						//used in variable "event" -> 0 means that the timer has been triggered
 //parameters for the WIFI connection
-#define WIFI_SSID  "FunBox2-97E6"				/*"NotSoFastBau"*/
-#define WIFI_PASS  "19A21975662AACD3563C37F976" /*"Vivailpolitecnico14!"*/
+#define WIFI_SSID  	"NotSoFastBau"
+#define WIFI_PASS   "Vivailpolitecnico14!"
 //socket client
 #define SERVER_PORT "13000"						//port number of the desktop application
 //masks for packet sniffing
@@ -46,6 +45,7 @@
 #define TYPE_PROBE 		 0b0000000001000000
 //packet handler constant
 #define MAX_SSID_LENGTH 256
+
 
 /*types definition*/
 
@@ -81,6 +81,7 @@ int recv_configuration();											//makes the first configuration of the ESP f
 int parse_configuration(char *buffer);								//parse the configuration message and apply it
 void connect_wifi();												//prepare the wifi connection
 static esp_err_t event_handler(void *ctx, system_event_t *event);	//manage wifi events, if no problems it connect to the wifi
+void reboot_task();													//create a background task waiting for reboot command (sended by the desktop app)
 void create_timer();												//create timer
 static void timer_callback(void* arg);  							//procedure called every time the timer is triggered -> sets the event variable to the TIMER_TRIGGERED value (0)
 static void timer_task(void *arg);									//stops the sniffer task -> open and send on a socket the JSON array -> restart timer and sniffer
@@ -103,9 +104,12 @@ char server_port[6];
 //timer declarations
 esp_timer_handle_t timer;
 xQueueHandle timer_queue;
+int timer_countdown;		//duration of the timer
 // Event group
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
+//channel declaration
+int channel;				//channel to sniff packets on
 //flag to set the promiscus mode
 int firstSet=1;
 //record declaration
@@ -129,6 +133,9 @@ void app_main() {
 		ESP_LOGE("MAIN", "Initial configuration problem... Restarting!");
 		esp_restart();
 	}
+
+	//create a background task waiting for reboot command (sended by the desktop app in async)
+	xTaskCreate(reboot_task, "ESP_reboot_task", 2048, NULL, 1, NULL);
 
 	//JSON array creation
 	data = cJSON_CreateArray();
@@ -244,6 +251,7 @@ int recv_configuration() {
 	ESP_LOGI(tag, "Shutting down socket");
 	close(listen_sock);
 
+
 	if (received) {
 		return 0;
 	} else {
@@ -256,7 +264,6 @@ int parse_configuration(char *buffer) {
 
 	cJSON *conf_json, *field;
 	uint64_t timestamp;
-	int channel;
 
 	if (buffer == NULL) {
 		return -1;
@@ -300,8 +307,17 @@ int parse_configuration(char *buffer) {
 		ESP_LOGE(tag, "Error parsing channel field");
 		return -1;
 	}
+
 	channel = field->valueint;
-	esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+	//sets the channel to sniff packets on
+	ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
+
+	field = cJSON_GetObjectItem(conf_json, "timer_count");
+	if(!cJSON_IsNumber(field)){
+		ESP_LOGE(tag, "Error parting timer_count field");
+		return -1;
+	}
+	timer_countdown = 1000000*field->valueint;
 
 	cJSON_Delete(conf_json);
 
@@ -309,7 +325,8 @@ int parse_configuration(char *buffer) {
 			"timestamp = %llu\n"
 			"ip address = %s\n"
 			"port = %s\n"
-			"channel = %u", timestamp, server_ip, server_port, channel);
+			"channel = %u\n"
+			"timer_count = %u", timestamp, server_ip, server_port, channel, timer_countdown);
 
 	return 0;
 }
@@ -388,6 +405,102 @@ static esp_err_t event_handler(void *ctx, system_event_t *event){
 	return ESP_OK;
 }
 
+//TODO: need to be tested
+void reboot_task(){
+	char *tag = "REBOOT";	// Tag for logging purposes
+
+	int received;	// Tells if the command is correctly received
+	int error; 		// Tells if there were errors during the reception of the reboot command
+	int count;		// N of attempts to receive the command
+
+	int nrecv;				// Bytes received in a single recv
+	int msglen;				// Total size of the received message
+	char rx_buffer[128];
+
+	int listen_sock;
+	struct sockaddr_in remote_addr;
+	size_t addrlen;
+	char addr_str[128];
+
+	/* Create a listening socket */
+	listen_sock = create_ipv4_listen_socket();
+	if(listen_sock == -1) {
+		ESP_LOGE("REBOOT", "Reboot task problem... Restarting!");
+		esp_restart();
+	}
+
+	ESP_LOGI(tag, "Socket listening...");
+
+	/* Receive incoming connections */
+	received = 0;
+	count = 0;
+
+	while (!received && count < CONF_MAX_RETRY_COUNT) {
+		count++;
+
+		/* Accept an incoming connection */
+		addrlen = sizeof(remote_addr);
+		int sock = accept(listen_sock, (struct sockaddr *) &remote_addr, &addrlen);
+
+		if (sock < 0) {
+			ESP_LOGE(tag, "Unable to accept connection: errno %d", errno);
+
+		} else {
+			/* Print remote host information */
+			inet_ntoa_r(((struct sockaddr_in *) &remote_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str)-1);
+			ESP_LOGI(tag, "Accepted connection from %s", addr_str);
+
+			msglen = 0;
+			error = 0;
+			while (!received && !error) {
+				nrecv = recv(sock, rx_buffer+msglen, sizeof(rx_buffer)-msglen-1, 0);
+
+				/* Error receiving data */
+				if (nrecv < 0) {
+					ESP_LOGE(tag, "recv failed: errno %d", errno);
+					error = 1;
+
+				/* Connection closed before message terminated */
+				} else if (nrecv == 0) {
+					ESP_LOGE(tag, "Connection closed prematurely");
+					error = 1;
+
+				/* Data received */
+				} else {
+					msglen += nrecv;
+
+					/* Check if message is terminated */
+					if (rx_buffer[msglen-1] == 0) {
+						rx_buffer[msglen] = '\0';
+						ESP_LOGI(tag, "Received message:\n%s", rx_buffer);
+
+						/* Try to parse and apply the configuration */
+						if(strcmp(rx_buffer,"R") == 0) {
+							received = 1;
+						} else {
+							error = 1;
+						}
+					}
+				}
+
+				/* Close the connected socket */
+				close(sock);
+			}
+		}
+
+		if(count >= CONF_MAX_RETRY_COUNT){
+			ESP_LOGE(tag, "Exceeded max number of reboot attempts");
+		}
+
+		/* Close the listening socket */
+		ESP_LOGI(tag, "Shutting down socket");
+		close(listen_sock);
+
+		ESP_LOGI(tag, "Rebooting...");
+		esp_restart();
+	}
+}
+
 void create_timer(){
 	//create a queue of parameters the will be passed from the callback to the actual task
 	timer_queue = xQueueCreate(10, sizeof(int));
@@ -400,7 +513,7 @@ void create_timer(){
 	ESP_ERROR_CHECK( esp_timer_create(&timer_args, &timer) );
 
 	/* Start the timer */
-	ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
+	ESP_ERROR_CHECK( esp_timer_start_once(timer, timer_countdown) );
 
 	//start the procedure tha will be listening for events putted in the queue by the callback (one every trigger of the timer)
 	xTaskCreate(timer_task, "timer_evt_task", 4096, NULL, 5, NULL);
@@ -472,14 +585,14 @@ static void timer_task(void *arg){
 				set_packets_sniffer();
 
 				//Restart the timer
-				ESP_ERROR_CHECK( esp_timer_start_once(timer, TIMER_COUNTDOWN) );
+				ESP_ERROR_CHECK( esp_timer_start_once(timer, timer_countdown) );
 				ESP_LOGI("TIMER-TASK", "Timer restarted, current val: %lld us", esp_timer_get_time());
 		}
 	}
 }
 
 int create_ipv4_listen_socket() {
-	char *tag = "CONF";	// Tag for logging purposes
+	char *tag = "CONF_REBOOT";	// Tag for logging purposes
 
 	int sock;
 	struct sockaddr_in local_addr;
@@ -493,6 +606,13 @@ int create_ipv4_listen_socket() {
 		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
 		return -1;
 	}
+
+	/*
+	 * used to bind again the same socket
+	 * without this piece of code the binding returns errno = 112 when trying to bind the socket for reboot
+	 */
+	int flag = 1;
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 
 	if (bind(sock, (struct sockaddr *) &local_addr, sizeof(local_addr)) != 0) {
 		ESP_LOGE(tag, "Socket unable to bind: errno %d", errno);
@@ -586,6 +706,12 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 
 	/* check if it is a probe request */
 	if(((hdr->frame_ctrl & TYPESUBTYPE_MASK) ^ TYPE_PROBE) == 0){
+		// if channel is different from the channel of the connection to the router
+		// skip packets that may be sniffed of the connection to the router channel
+		if(ppkt->rx_ctrl.channel != channel){
+			ESP_LOGI("Sniffer", "Skipped packet on channel %d", ppkt->rx_ctrl.channel);
+			return;
+		}
 
 		/* look for SSID in the payload */
 		if(ipkt->payload[0] == 0){ // ssid field is present

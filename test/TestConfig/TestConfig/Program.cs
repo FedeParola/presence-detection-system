@@ -20,12 +20,13 @@ namespace TestConfig
         //Define the port where the server waits for connections from the esp32 clients and the channel used by the esp32 clients when sniffing
         //TODO: poi saranno da inserire via interfaccia grafica dall'utente e non definite come costanti
         private const String listeningPort = "13000";
-        private const Int16 channel = 1;
+        private const Int16 channel = 3;
+        private const Int16 timer_count = 10;
         static void Main(string[] args)
         {
             // Connect to the esp32
             TcpClient client = new TcpClient();
-            String espAddr = "192.168.1.6";
+            String espAddr = "192.168.1.8";
             IPAddress espIpAddr = IPAddress.Parse(espAddr);
             Int32 espPort = 13000;
             Console.WriteLine("Trying to connect to {0}:{1}...", espAddr, espPort.ToString());
@@ -41,7 +42,7 @@ namespace TestConfig
             JsonSerializer serializer = new JsonSerializer();
             // Get the current timestamp and the local IP address create the configuration object
             IPEndPoint localEndPoint = client.Client.LocalEndPoint as IPEndPoint;
-            Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(), localEndPoint.Address.ToString(), listeningPort, channel);
+            Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(), localEndPoint.Address.ToString(), listeningPort, channel, timer_count);
 
             // Set a 10 seconds timeout when receiving the ack
             netStream.ReadTimeout = 10 * 1000;
