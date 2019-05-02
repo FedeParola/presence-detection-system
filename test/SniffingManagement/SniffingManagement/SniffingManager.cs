@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SniffingManagement {
     class SniffingManager {
@@ -15,8 +16,8 @@ namespace SniffingManagement {
 
         /* Sniffing start/stop fields */
         private bool sniffing = false;
-        private bool stopping = false;
-        private AutoResetEvent processRecordsEnded = new AutoResetEvent(false);
+        private volatile bool stopping = false; // Can be read/written by multiple threads
+        private Task processRecordsTask;
         private AutoResetEvent acceptClientEnded = new AutoResetEvent(false);
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
@@ -117,7 +118,7 @@ namespace SniffingManagement {
             }
 
             /* Start records processing task */
-            ThreadPool.QueueUserWorkItem(ProcessRecords, null); // MAYBE A LongRunningTask IS BETTER
+            processRecordsTask = Task.Factory.StartNew(ProcessRecords);
 
             /* Start the listening task */
             tcpListener = new TcpListener(IPAddress.Any, Port);
@@ -140,7 +141,7 @@ namespace SniffingManagement {
 
             /* Stop records processing task */
             newRecordsEvent.Set();          // Wake task in case it is waiting
-            processRecordsEnded.WaitOne();  // Wait for the task to end
+            processRecordsTask.Wait();      // Wait for the task to end
             
             /* Clear structures */
             newRecordsFlags.Clear();
@@ -207,7 +208,7 @@ namespace SniffingManagement {
             return;
         }
 
-        private void ProcessRecords(object arg) {
+        private void ProcessRecords() {
             while (true) {
                 /* Check that all sniffers transmitted new records */
                 Console.WriteLine("(ProcessRecords) Checking flags");
@@ -217,7 +218,6 @@ namespace SniffingManagement {
 
                         if (stopping) {
                             Console.WriteLine("(ProcessRecords) Ending ProcessRecords()");
-                            processRecordsEnded.Set();
                             return;
                         }
                     }
