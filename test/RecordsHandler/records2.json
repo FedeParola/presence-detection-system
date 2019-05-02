@@ -1,0 +1,37 @@
+[
+    {
+        "timestamp": 0,
+        "SSID": "SSID0",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
+        "RSSI": 0,
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
+    },
+    {
+        "timestamp": 3000,
+        "SSID": "SSID3",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
+        "RSSI": 3,
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
+    },
+    {
+        "timestamp": 4000,
+        "SSID": "SSID4",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
+        "RSSI": 4,
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
+    },
+    {
+        "timestamp": 5000,
+        "SSID": "SSID5",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
+        "RSSI": 5,
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
+    },
+    {
+        "timestamp": 7000,
+        "SSID": "SSID7",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
+        "RSSI": 7,
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
+    }
+]
