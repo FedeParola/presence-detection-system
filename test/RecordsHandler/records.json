@@ -2,71 +2,57 @@
     {
         "timestamp": 0,
         "SSID": "SSID0",
-        "MACADDR": "MAC0",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 0,
-        "hash": "HASH0"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 1,
+        "timestamp": 1100,
         "SSID": "SSID1",
-        "MACADDR": "MAC1",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 1,
-        "hash": "HASH1"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 2,
+        "timestamp": 2300,
         "SSID": "SSID2",
-        "MACADDR": "MAC2",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 2,
-        "hash": "HASH2"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 3,
+        "timestamp": 4000,
         "SSID": "SSID3",
-        "MACADDR": "MAC3",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 3,
-        "hash": "HASH3"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 4,
+        "timestamp": 5200,
         "SSID": "SSID4",
-        "MACADDR": "MAC4",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 4,
-        "hash": "HASH4"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 5,
+        "timestamp": 6000,
         "SSID": "SSID5",
-        "MACADDR": "MAC5",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 5,
-        "hash": "HASH5"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 6,
-        "SSID": "SSID6",
-        "MACADDR": "MAC6",
-        "RSSI": 6,
-        "hash": "HASH6"
-    },
-    {
-        "timestamp": 7,
-        "SSID": "SSID7",
-        "MACADDR": "MAC7",
-        "RSSI": 7,
-        "hash": "HASH7"
-    },
-    {
-        "timestamp": 8,
+        "timestamp": 8100,
         "SSID": "SSID8",
-        "MACADDR": "MAC8",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 8,
-        "hash": "HASH8"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     },
     {
-        "timestamp": 9,
+        "timestamp": 9400,
         "SSID": "SSID9",
-        "MACADDR": "MAC9",
+        "MACADDR": "AA:BB:CC:DD:EE:FF",
         "RSSI": 9,
-        "hash": "HASH9"
+        "hash": "1ccc763d58dc8b0a1ccc763d58dc8b0a"
     }
 ]
