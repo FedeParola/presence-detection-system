@@ -35,7 +35,7 @@ namespace RecordsHandler.SniffersManagement {
 
         public SniffersManager() {
             Port = 13000;
-            db = new DBManager("127.0.0.1", "user", "pass", "ai_esercitazione2");
+            db = new DBManager("127.0.0.1", "user", "pass", "pds");
 
             /* Initialize flags for all sniffers */
             newRecordsFlags["127.0.0.1"] = false;
