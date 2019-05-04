@@ -147,7 +147,7 @@ namespace RecordsHandler.SniffersManagement {
                 /*Opt: Sort the array of rawRecords in ascending order for the number of records associated to each esp*/
                 Array.Sort(rawRecordsArray, 0, espCount, comparer);
                 /*Opt: mark the first packet considered for each list of packets; when working on the next packet
-                 * (which will be more recent) we can start looking for it among the the ones captured by the others esp32 
+                 * (which will be more recent) we can start looking for it among the ones captured by the others esp32 
                  * starting from the marked packet and ignoring the previous ones (they will be older)*/
                 int[] startIndex = new int[espCount];
                 for(int i = 0; i < espCount; i++)
@@ -155,6 +155,28 @@ namespace RecordsHandler.SniffersManagement {
                     startIndex[i] = 0;
                 }
                 Boolean startIndexUpdated;
+
+                /*Eliminate "duplicate" packets (packets with the same hash within the same time window)*/
+                var recordsList = rawRecordsArray[0].Value.ToArray();
+                for (int i = 0; i < recordsList.Length; i++)
+                {
+                    nextRecord = false;
+                    for (int j = i+1; j < recordsList.Length && nextRecord == false; j++)
+                    {
+                        if(recordsList[j].Timestamp > recordsList[i].Timestamp + timeTolerance)
+                        {
+                            nextRecord = true;
+                        }
+                        else if(recordsList[j].Timestamp > recordsList[i].Timestamp - timeTolerance)
+                        {
+                            if(recordsList[i].Hash.Equals(recordsList[j].Hash))
+                            {
+                                rawRecordsArray[0].Value.RemoveAt(j);
+                            }
+                        }
+                    }
+                }
+
                 /*Go through the records of the first esp32*/
                 foreach (var record in rawRecordsArray[0].Value)
                 {
@@ -162,7 +184,7 @@ namespace RecordsHandler.SniffersManagement {
                     /*Go through each esp32*/
                     for (int i = 1; i < espCount && nextRecord == false; i++)
                     {
-                        var recordsList = rawRecordsArray[i].Value.ToArray();
+                        recordsList = rawRecordsArray[i].Value.ToArray();
                         found = false;
                         diffTimestamp = false;
                         startIndexUpdated = false;
