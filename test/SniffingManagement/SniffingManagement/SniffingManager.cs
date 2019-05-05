@@ -17,24 +17,21 @@ namespace SniffingManagement {
         /* Sniffing start/stop fields */
         private bool sniffing = false;
         private volatile bool stopping = false; // Can be read/written by multiple threads
+        private AutoResetEvent listeningStopped = new AutoResetEvent(false);
         private Task processRecordsTask;
-        private AutoResetEvent acceptClientEnded = new AutoResetEvent(false);
+        private SynchCounter handleSnifferTasksCount = new SynchCounter(0);
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
         private TcpListener tcpListener;
         private JsonSerializer serializer = new JsonSerializer();
-
         /* 
          * Records received from the last communication with the sniffers.
          * Key: the string representation of the ip addr of the sniffer that sent the records
          * Value: list of raw records that needs to be processed
          */
         private ConcurrentDictionary<String, List<Record>> rawRecords = new ConcurrentDictionary<String, List<Record>>();
-
         /* For every sniffer (identified by ip) tells if there are new records to process */
-        private ConcurrentDictionary<String, bool> newRecordsFlags = new ConcurrentDictionary<string, bool>();
-        private AutoResetEvent newRecordsEvent = new AutoResetEvent(false);
-        private ManualResetEvent recordsProcessedEvent = new ManualResetEvent(false);
+        private Dictionary<String, bool> newRecordsFlags = new Dictionary<string, bool>();
 
 
         public SniffingManager(int port, int sniffingPeriod /* DB config to be added */) {
@@ -123,7 +120,7 @@ namespace SniffingManagement {
             /* Start the listening task */
             tcpListener = new TcpListener(IPAddress.Any, Port);
             tcpListener.Start();
-            tcpListener.BeginAcceptTcpClient(new AsyncCallback(AcceptClient), null);
+            tcpListener.BeginAcceptTcpClient(new AsyncCallback(AcceptClient), tcpListener);
 
             /* Config ESPs */
 
@@ -136,12 +133,22 @@ namespace SniffingManagement {
             /* Reset ESPs */
 
             /* Stop listening task */
-            tcpListener.Stop();             // Triggers a last call to AcceptClient() if it's not already running
-            acceptClientEnded.WaitOne();    // Wait for the task to end
+            lock (tcpListener) {
+                tcpListener.Stop();     // Triggers a last call to AcceptClient() if it's not already running
+            }
+            listeningStopped.WaitOne();
 
-            /* Stop records processing task */
-            newRecordsEvent.Set();          // Wake task in case it is waiting
-            processRecordsTask.Wait();      // Wait for the task to end
+            /* Wake ProcessRecords and HandleSniffer tasks eventually waiting */
+            lock (newRecordsFlags) {
+                Monitor.Pulse(newRecordsFlags);
+            }
+
+            /* Wait for all HandleSniffer tasks to end */
+            handleSnifferTasksCount.WaitZero();
+            Console.WriteLine("(StopSniffing) All HandleSniffer tasks ended");
+
+            /* Wait for ProccessRecords task to end */
+            processRecordsTask.Wait();
             
             /* Clear structures */
             newRecordsFlags.Clear();
@@ -152,21 +159,20 @@ namespace SniffingManagement {
         }
 
         private void AcceptClient(IAsyncResult ar) {
-            if (stopping) {
-                Console.WriteLine("(AcceptClient) Ending accept");
-                acceptClientEnded.Set();
-                return;
-            }
+            TcpListener listener = (TcpListener) ar.AsyncState;
 
-            try {
-                TcpClient client = tcpListener.EndAcceptTcpClient(ar);
+            /* Avoid a call to tcpListener.Stop() during the following code */
+            lock (listener) {
+                if (stopping) {
+                    Console.WriteLine("(AcceptClient) Ending accept");
+                    listeningStopped.Set();
+                    return;
+                }
+
+                TcpClient client = listener.EndAcceptTcpClient(ar);
+                handleSnifferTasksCount.Inc();
                 ThreadPool.QueueUserWorkItem(HandleSniffer, client);
-                tcpListener.BeginAcceptTcpClient(new AsyncCallback(AcceptClient), null);
-                    
-            /* A call to tcpListener.Stop() was performend while accepting a new client */
-            } catch (ObjectDisposedException) { 
-                Console.WriteLine("(AcceptClient) Ending accept");
-                acceptClientEnded.Set();
+                listener.BeginAcceptTcpClient(new AsyncCallback(AcceptClient), listener);
             }
         }
 
@@ -176,10 +182,12 @@ namespace SniffingManagement {
             /* Retrieve sniffer ip addr */
             string snifferAddr = ((IPEndPoint) client.Client.RemoteEndPoint).Address.ToString();
 
-            /* Check that old records have been processed */
-            while (newRecordsFlags[snifferAddr]) {
-                recordsProcessedEvent.WaitOne();
-                recordsProcessedEvent.Reset();
+            /* Check the connection is from a known sniffer */
+            if (!sniffers.ContainsKey(snifferAddr)) {
+                Console.WriteLine("(HandleSniffer) Received connection from unknown ip " + snifferAddr);
+                client.Close();
+                Console.WriteLine("(HandleSniffer) Connection closed");
+                return;
             }
 
             Console.WriteLine("(HandleSniffer) Receiving records from " + snifferAddr + "...");
@@ -187,11 +195,6 @@ namespace SniffingManagement {
             /* Unmarshal the json stream */
             List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
             Console.WriteLine("(HandleSniffer) Records received");
-
-            /* Store records into the map */
-            rawRecords[snifferAddr] = records;
-            newRecordsFlags[snifferAddr] = true;
-            newRecordsEvent.Set();
 
             /* Get the current timestamp and send it to the sniffer */
             Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds());
@@ -205,23 +208,55 @@ namespace SniffingManagement {
             client.Close();
             Console.WriteLine("(HandleSniffer) Connection closed");
 
+            lock (newRecordsFlags) {
+                /* Check that old records have been processed */
+                while (newRecordsFlags[snifferAddr]) {
+                    /* Check if stopping required */
+                    if (stopping) {
+                        handleSnifferTasksCount.Dec();
+                        return;
+                    }
+
+                    /* Wait for a change in flags */
+                    Monitor.Wait(newRecordsFlags);
+                }
+
+                /* Store records into the map */
+                rawRecords[snifferAddr] = records;
+                newRecordsFlags[snifferAddr] = true;
+                Monitor.PulseAll(newRecordsFlags); 
+            }
+
+            handleSnifferTasksCount.Dec();
+
             return;
         }
 
         private void ProcessRecords() {
             while (true) {
-                /* Check that all sniffers transmitted new records */
-                Console.WriteLine("(ProcessRecords) Checking flags");
-                foreach (var key in newRecordsFlags.Keys) {
-                    while (!newRecordsFlags[key]) {
-                        newRecordsEvent.WaitOne();
+                /* Check if stopping required */
+                if (stopping) {
+                    Console.WriteLine("(ProcessRecords) Stopping ProcessRecords()");
+                    return;
+                }
 
-                        if (stopping) {
-                            Console.WriteLine("(ProcessRecords) Ending ProcessRecords()");
-                            return;
+                /* Check that all sniffers transmitted new records */
+                lock (newRecordsFlags) {
+                    foreach (var key in sniffers.Keys) {
+                        while (!newRecordsFlags[key]) {
+                            /* Check if stopping required */
+                            if (stopping) {
+                                Console.WriteLine("(ProcessRecords) Stopping ProcessRecords()");
+                                return;
+                            }
+
+                            /* Wait for a change in flags */
+                            Console.WriteLine("(ProcessRecords) Waiting for new records...");
+                            Monitor.Wait(newRecordsFlags);
                         }
                     }
                 }
+
                 Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
 
                 /* Process records here */
@@ -229,11 +264,48 @@ namespace SniffingManagement {
                 Console.WriteLine("(ProcessRecords) Records processed");
 
                 /* Mark all records as processed */
-                foreach (var key in newRecordsFlags.Keys) {
-                    newRecordsFlags[key] = false;
+                lock (newRecordsFlags) {
+                    foreach (var key in sniffers.Keys) {
+                        newRecordsFlags[key] = false;
+                    }
+                    Monitor.PulseAll(newRecordsFlags);
                 }
-                recordsProcessedEvent.Set();
                 Console.WriteLine("(ProcessRecords) All flags reset");
+            }
+        }
+
+        private class SynchCounter {
+            private uint counter;
+            private object counterLock;
+
+            public SynchCounter(uint start) {
+                counter = start;
+                counterLock = new object();
+            }
+
+            public void Inc() {
+                lock (counterLock) {
+                    counter++;
+                }
+            }
+
+            public void Dec() {
+                lock (counterLock) {
+                    if (counter > 0) {
+                        counter--;
+                    }
+                    if (counter == 0) {
+                        Monitor.PulseAll(counterLock);
+                    }
+                }
+            }
+
+            public void WaitZero() {
+                lock (counterLock) {
+                    while (counter > 0) {
+                        Monitor.Wait(counterLock);
+                    }
+                }
             }
         }
     }
