@@ -10,9 +10,15 @@ using System.Threading.Tasks;
 
 namespace SniffingManagement {
     class SniffingManager {
+        private const int SNIFFER_LISTEN_PORT = 13000;
+        private const byte ACK_BYTE = (byte) 'A';
+        private const byte RESET_BYTE = (byte) 'R';
+        private const byte TERMINATION_BYTE = 0;
+
         /* Following properties are set during the construction and can't be changed (for now) */
-        public int Port { get; }
-        public int SniffingPeriod { get; }
+        public UInt16 Port { get; }
+        public UInt16 SniffingPeriod { get; }
+        public Byte Channel { get; }
 
         /* Sniffing start/stop fields */
         private bool sniffing = false;
@@ -34,9 +40,10 @@ namespace SniffingManagement {
         private Dictionary<String, bool> newRecordsFlags = new Dictionary<string, bool>();
 
 
-        public SniffingManager(int port, int sniffingPeriod /* DB config to be added */) {
+        public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel /* DB config to be added */) {
             Port = port;
             SniffingPeriod = sniffingPeriod;
+            Channel = channel;
         }
 
         public void AddSniffer(Sniffer s) {
@@ -122,7 +129,11 @@ namespace SniffingManagement {
             tcpListener.Start();
             tcpListener.BeginAcceptTcpClient(new AsyncCallback(AcceptClient), tcpListener);
 
-            /* Config ESPs */
+            /* Config sniffers */
+            foreach (Sniffer s in sniffers.Values) {
+                ConfigSniffer(s.Ip);
+                s.Status = Sniffer.SnifferStatus.Running;
+            }
 
             sniffing = true;
         }
@@ -130,7 +141,11 @@ namespace SniffingManagement {
         public void StopSniffing() {
             stopping = true;
 
-            /* Reset ESPs */
+            /* Reset sniffers */
+            foreach (Sniffer s in sniffers.Values) {
+                ResetSniffer(s.Ip);
+                s.Status = Sniffer.SnifferStatus.Stopped;
+            }
 
             /* Stop listening task */
             lock (tcpListener) {
@@ -176,6 +191,7 @@ namespace SniffingManagement {
             }
         }
 
+        /* TODO: handle exceptions */
         private void HandleSniffer(object arg) {
             TcpClient client = (TcpClient) arg;
 
@@ -197,7 +213,8 @@ namespace SniffingManagement {
             Console.WriteLine("(HandleSniffer) Records received");
 
             /* Get the current timestamp and send it to the sniffer */
-            Configuration conf = new Configuration(new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds());
+            Configuration conf = new Configuration();
+            conf.Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
             Console.WriteLine("(HandleSniffer) Sending configuration... ");
             StreamWriter writer = new StreamWriter(client.GetStream());
             serializer.Serialize(writer, conf);
@@ -271,6 +288,83 @@ namespace SniffingManagement {
                     Monitor.PulseAll(newRecordsFlags);
                 }
                 Console.WriteLine("(ProcessRecords) All flags reset");
+            }
+        }
+
+        /* TODO: handle exceptions */
+        private void ConfigSniffer(String ip) {
+            TcpClient client = new TcpClient();
+            StreamWriter writer = null;
+
+            try {
+                /* Connect to the sniffer */
+                Console.WriteLine("Trying to connect to {0}:{1}...", ip, SNIFFER_LISTEN_PORT);
+                client.Connect(IPAddress.Parse(ip), SNIFFER_LISTEN_PORT);
+                Console.WriteLine("Connected!");
+
+                NetworkStream netStream = client.GetStream();
+                writer = new StreamWriter(netStream);
+
+                /* Set a 10 seconds timeout when receiving the ack */
+                netStream.ReadTimeout = 10000;
+
+                /* Prepare configuration data */
+                Configuration conf = new Configuration {
+                    Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
+                    IpAddress = (client.Client.LocalEndPoint as IPEndPoint).Address.ToString(),
+                    Port = Port.ToString(), // Why don't we use a number???
+                    Channel = Channel,
+                    SniffingPeriod = SniffingPeriod
+                };
+            
+                /* Send the configuration */
+                Console.WriteLine("Sending configuration... ");
+                serializer.Serialize(writer, conf);
+                writer.Flush();
+                netStream.WriteByte(TERMINATION_BYTE);
+                Console.WriteLine("Configuration sent");
+
+                byte[] ack = new byte[1];
+
+                /* Receive ACK */
+                if (netStream.Read(ack, 0, 1) < 1) {    // Throws IOException if timeout expires
+                    throw new IOException("Error receiving ACK");
+                }
+
+                /* Check ACK correctness */
+                if (ack[0] != ACK_BYTE) {
+                    throw new IOException("Received invalid ACK");
+                }
+
+            } finally {
+                if (writer != null) {
+                    writer.Close();
+                }
+                client.Close();
+                Console.WriteLine("Connection closed");
+            }
+        }
+
+        /* TODO: handle exceptions */
+        private void ResetSniffer(String ip) {
+            TcpClient client = new TcpClient();
+
+            try {
+                /* Connect to the sniffer */
+                Console.WriteLine("Trying to connect to {0}:{1}...", ip, SNIFFER_LISTEN_PORT);
+                client.Connect(IPAddress.Parse(ip), SNIFFER_LISTEN_PORT);
+                Console.WriteLine("Connected!");
+
+                NetworkStream netStream = client.GetStream();
+
+                /* Send the configuration */
+                Console.Write("Sending reset command... ");
+                netStream.WriteByte(RESET_BYTE);
+                Console.WriteLine("Command sent");
+
+            } finally {
+                client.Close();
+                Console.WriteLine("Connection closed");
             }
         }
 
