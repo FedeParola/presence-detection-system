@@ -34,7 +34,8 @@ namespace SniffingManagement.Persistence
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
-                cmd.CommandText = "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") " +
+                cmd.CommandText = 
+                    "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") " +
                     "VALUES (" +
                     "'" + hash + "', " +
                     "'" + MAC + "', " +
@@ -58,7 +59,8 @@ namespace SniffingManagement.Persistence
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
-                cmd.CommandText = "SELECT COUNT (DISTINCT \"MAC\") " +
+                cmd.CommandText = 
+                    "SELECT COUNT (DISTINCT \"MAC\") " +
                     "FROM \"Record\" WHERE \"Timestamp\" >= " + startingTimeInstant + ";";
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -133,6 +135,41 @@ namespace SniffingManagement.Persistence
             return macAddresses;
 
             /*...e riportante IN QUALI INTERVALLI TALI DISPOSITIVI SONO STATI RILEVATI!*/
+        }
+
+        /*DA TESTARE! Inoltre al momento memorizzo per ogni mac semplicemente la successione delle posizioni...
+         dovrei anche apporre il timestamp a ogni posizione? Inoltre ha senso considerare posizioni relative allo stesso mac
+         temporalmente molto vicine?*/
+        public Dictionary<String, List<Point>> GetDevicesMovements(long startInstant, long stopInstant)
+        {
+            Dictionary <String, List<Point>> positionsSequence = new Dictionary<String, List<Point>>();
+
+            using (var cmd = new NpgsqlCommand())
+            {
+                cmd.Connection = conn;
+                cmd.CommandText =
+                    "SELECT \"MAC\", \"X\", \"Y\"" +
+                    "FROM \"Record\"" +
+                    "WHERE \"Timestamp\" >= " + startInstant + "AND" +
+                    "      \"Timestamp\" < " + stopInstant + "" +
+                    "ORDER BY \"Timestamp\" ASC;";
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        if (!positionsSequence.ContainsKey(reader.GetString(0)))
+                        {
+                            positionsSequence.Add(reader.GetString(0), new List<Point>());
+                        }
+
+                        Point p = new Point(reader.GetDouble(1), reader.GetDouble(2));
+                        positionsSequence.TryGetValue(reader.GetString(0), out List<Point> l);
+                        l.Add(p);
+                    }
+                }
+            }
+
+            return positionsSequence;
         }
     }
 }
