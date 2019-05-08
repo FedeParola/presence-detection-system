@@ -379,6 +379,7 @@ namespace SniffingManagement {
                     {
                         /*The record was captured by each and any esp32*/
                         /*Compute position*/
+                        /*double p=pow(10,(((-52) - ppkt->rx_ctrl.rssi) / (10 * 1.8)));*/
                         double x = 0;
                         double y = 0;
                         /*Insert the record into the db*/

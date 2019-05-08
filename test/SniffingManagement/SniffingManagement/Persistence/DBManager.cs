@@ -58,7 +58,8 @@ namespace SniffingManagement.Persistence
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
-                cmd.CommandText = "SELECT COUNT (DISTINCT \"MAC\") FROM \"Record\" WHERE \"Timestamp\" >= " + startingTimeInstant + ";";
+                cmd.CommandText = "SELECT COUNT (DISTINCT \"MAC\") " +
+                    "FROM \"Record\" WHERE \"Timestamp\" >= " + startingTimeInstant + ";";
                 using (var reader = cmd.ExecuteReader())
                 {
                     reader.Read();
@@ -80,11 +81,13 @@ namespace SniffingManagement.Persistence
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "SELECT \"MAC\", \"X\", \"Y\", ROW_NUMBER () OVER(PARTITION BY \"MAC\"" +
-                                                                    " ORDER BY \"Timestamp\" DESC)" +
-                    "FROM TABLE \"Record\"" +
-                    "WHERE ROW_NUMBER = 1 AND " +
-                    "\"Timestamp\" >= " + startingTimeInstant + ";";
+                "SELECT \"MAC\", \"X\", \"Y\" FROM(" +
+                "   SELECT \"MAC\", \"X\", \"Y\", ROW_NUMBER () OVER(PARTITION BY \"MAC\"" +
+                                                                    "ORDER BY \"Timestamp\" DESC)" +
+                "   FROM \"Record\"" +
+                "   WHERE \"Timestamp\" >= " + startingTimeInstant +
+                ") \"Devices\"" +
+                "WHERE ROW_NUMBER = 1;";
                 using (var reader = cmd.ExecuteReader())
                 {
                     while(reader.Read())
@@ -96,6 +99,40 @@ namespace SniffingManagement.Persistence
             }
 
             return DevicesPositions;
+        }
+
+        /*OPTIONAL EXTENSIONS*/
+
+        /*DA TESTARE*/
+        /*The 'minThreshold' represents the minimum number of times a device must be detected to be considered 'talkative' */
+        public List<String> GetTalkativeDevices(long startInstant, long stopInstant, int minThreshold)
+        {
+            List<String> macAddresses = new List<String>();
+
+            using (var cmd = new NpgsqlCommand())
+            {
+                cmd.Connection = conn;
+                cmd.CommandText =
+                    "SELECT \"MAC\", \"NoOfAppearances\" FROM (" +
+                    "   SELECT \"MAC\", COUNT(*) AS \"NoOfAppearances\" " +
+                    "   FROM \"Record\"" +
+                    "   WHERE \"Timestamp\" >=" + startInstant + "AND" +
+                             "\"Timestamp\" <" + stopInstant +
+                    "   GROUP BY \"MAC\" " +
+                    "   ) \"Macs\"" +
+                    "WHERE \"NoOfAppearances\" >= " + minThreshold + ";";
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        macAddresses.Add(reader.GetString(0));
+                    }
+                }
+            }
+
+            return macAddresses;
+
+            /*...e riportante IN QUALI INTERVALLI TALI DISPOSITIVI SONO STATI RILEVATI!*/
         }
     }
 }
