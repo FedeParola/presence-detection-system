@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using SniffingManagement.Persistence;
+using SniffingManagement.Trilateration;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -24,7 +25,7 @@ namespace SniffingManagement {
             }
         }
         private IComparer comparer = new Comparer();
-        private DBManager db;
+        private DBManager db = new DBManager("127.0.0.1", "user", "pass", "pds");
 
         private const int SNIFFER_LISTEN_PORT = 13000;
         private const byte ACK_BYTE = (byte) 'A';
@@ -294,7 +295,7 @@ namespace SniffingManagement {
 
                 /* Process records here */
 
-                /*PARTE DI CODICE DA ORGANIZZARE MEGLIO, CREARE UNA CLASSE APPOSITA!*/
+                /*PARTE DI CODICE DA ORGANIZZARE MEGLIO, CREARE UNA CLASSE APPOSITA! GESTIRE ECCEZIONI!*/
                 Boolean found;
                 Boolean diffTimestamp;
                 Boolean nextRecord;
@@ -312,6 +313,8 @@ namespace SniffingManagement {
                     startIndex[i] = 0;
                 }
                 Boolean startIndexUpdated;
+
+                int[] RSSIs = new int[espCount];
 
                 /*Eliminate "duplicate" packets (packets with the same hash within the same time window)*/
                 var recordsList = rawRecordsArray[0].Value.ToArray();
@@ -337,6 +340,7 @@ namespace SniffingManagement {
                 /*Go through the records of the first esp32*/
                 foreach (var record in rawRecordsArray[0].Value)
                 {
+                    RSSIs[0] = record.Rssi;
                     nextRecord = false;
                     /*Go through each esp32*/
                     for (int i = 1; i < espCount && nextRecord == false; i++)
@@ -348,6 +352,7 @@ namespace SniffingManagement {
                         /*Go through each packet captured by the esp32*/
                         for (int j = startIndex[i]; j < recordsList.Length && found == false && diffTimestamp == false; j++)
                         {
+                            /*index i represents the i-th esp while index j represents the j-th record captured by the esp*/
                             if (recordsList[j].Timestamp > record.Timestamp + timeTolerance)
                             {
                                 /*The esp32 we are considering did not capture the record: 
@@ -366,6 +371,7 @@ namespace SniffingManagement {
                                     /*The esp32 we are considering did capture the record: 
                                      * we have to see if the others did the same*/
                                     found = true;
+                                    RSSIs[i] = recordsList[j].Rssi;
                                 }
                             }
                         }
@@ -379,11 +385,17 @@ namespace SniffingManagement {
                     {
                         /*The record was captured by each and any esp32*/
                         /*Compute position*/
-                        /*double p=pow(10,(((-52) - ppkt->rx_ctrl.rssi) / (10 * 1.8)));*/
-                        double x = 0;
-                        double y = 0;
+                        TrilaterationCalculator TC = new TrilaterationCalculator();
+                        for (int i = 0; i < espCount; i++)
+                        {
+                            double d = Math.Pow(10, (((-52) - RSSIs[i]) / (10 * 1.8)));
+                            sniffers.TryGetValue(rawRecordsArray[i].Key, out Sniffer s);
+                            Measurement m = new Measurement(s.Position, d);
+                            TC.AddMeasurement(m);
+                        }
                         /*Insert the record into the db*/
-                        db.InsertRecord(record.Hash, record.MacAddr, record.Ssid, record.Timestamp, x, y);
+                        Point p = TC.Compute();
+                        db.InsertRecord(record.Hash, record.MacAddr, record.Ssid, record.Timestamp, p.X, p.Y);
                     }
                 }
 
