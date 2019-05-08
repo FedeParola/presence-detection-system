@@ -13,7 +13,7 @@ namespace SniffingManagement {
         static void Main(string[] args) {
             SniffingManager sm = new SniffingManager(13000, 20, 3);
 
-            sm.AddSniffer(new Sniffer("192.168.1.4", new Point(0, 0)));
+            sm.AddSniffer(new Sniffer("192.168.1.9", new Point(0, 0)));
 
             sm.StartSniffing();
             Console.WriteLine("(Main) Sniffing started");

@@ -24,9 +24,6 @@
 	make flash
 	make monitor
 */
-/*
- * TODO: make sniffing on a selected channel work
- */
 
 /*constants definition*/
 
@@ -85,7 +82,7 @@ void reboot_task();													//create a background task waiting for reboot co
 void create_timer();												//create timer
 static void timer_callback(void* arg);  							//procedure called every time the timer is triggered -> sets the event variable to the TIMER_TRIGGERED value (0)
 static void timer_task(void *arg);									//stops the sniffer task -> open and send on a socket the JSON array -> restart timer and sniffer
-int create_ipv4_listen_socket();									//create a listening socket
+int create_ipv4_listen_socket(char reason);									//create a listening socket
 int create_ipv4_socket_client();									//create a client socket connection
 void set_packets_sniffer();											//starts to sniffing packets -> call the packet_handler at every received packet
 void unset_packets_sniffer();										//stops the sniffer
@@ -169,7 +166,7 @@ int recv_configuration() {
 	char addr_str[128];
 
 	/* Create a listening socket */
-	listen_sock = create_ipv4_listen_socket();
+	listen_sock = create_ipv4_listen_socket('C');
 	if(listen_sock == -1) {
 		return -1;
 	}
@@ -186,7 +183,6 @@ int recv_configuration() {
 		/* Accept an incoming connection */
 		addrlen = sizeof(remote_addr);
 		int sock = accept(listen_sock, (struct sockaddr *) &remote_addr, &addrlen);
-
 		if (sock < 0) {
 			ESP_LOGE(tag, "Unable to accept connection: errno %d", errno);
 
@@ -312,6 +308,7 @@ int parse_configuration(char *buffer) {
 	//sets the channel to sniff packets on
 	ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
 
+	/* Retrieve timer_countdown */
 	field = cJSON_GetObjectItem(conf_json, "timer_count");
 	if(!cJSON_IsNumber(field)){
 		ESP_LOGE(tag, "Error parting timer_count field");
@@ -410,94 +407,90 @@ void reboot_task(){
 	char *tag = "REBOOT";	// Tag for logging purposes
 
 	int received;	// Tells if the command is correctly received
-	int error; 		// Tells if there were errors during the reception of the reboot command
-	int count;		// N of attempts to receive the command
-
-	int nrecv;				// Bytes received in a single recv
-	int msglen;				// Total size of the received message
-	char rx_buffer[128];
+	int nrecv;		// Bytes received in a single recv
+	char rx_char[2];
 
 	int listen_sock;
 	struct sockaddr_in remote_addr;
 	size_t addrlen;
 	char addr_str[128];
 
-	/* Create a listening socket */
-	listen_sock = create_ipv4_listen_socket();
-	if(listen_sock == -1) {
-		ESP_LOGE("REBOOT", "Reboot task problem... Restarting!");
-		esp_restart();
-	}
+	//infinite cycle to manage the rebooting recv errors
+	while(1){
+		/* Create a listening socket */
+		listen_sock = create_ipv4_listen_socket('R');
+		if(listen_sock == -1) {
+			ESP_LOGE("REBOOT", "Reboot task problem... Restarting!");
+			esp_restart();
+		}
 
-	ESP_LOGI(tag, "Socket listening...");
+		ESP_LOGI(tag, "Socket listening...");
 
-	/* Receive incoming connections */
-	received = 0;
-	count = 0;
+		/* Receive incoming connections */
+		received = 0;
 
-	while (!received && count < CONF_MAX_RETRY_COUNT) {
-		count++;
-
-		/* Accept an incoming connection */
-		addrlen = sizeof(remote_addr);
-		int sock = accept(listen_sock, (struct sockaddr *) &remote_addr, &addrlen);
-
-		if (sock < 0) {
-			ESP_LOGE(tag, "Unable to accept connection: errno %d", errno);
-
-		} else {
-			/* Print remote host information */
-			inet_ntoa_r(((struct sockaddr_in *) &remote_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str)-1);
-			ESP_LOGI(tag, "Accepted connection from %s", addr_str);
-
-			msglen = 0;
-			error = 0;
-			while (!received && !error) {
-				nrecv = recv(sock, rx_buffer+msglen, sizeof(rx_buffer)-msglen-1, 0);
-
+		while (!received) {
+			/* Accept an incoming connection */
+			addrlen = sizeof(remote_addr);
+			int sock = accept(listen_sock, (struct sockaddr *) &remote_addr, &addrlen);
+			if (sock < 0) {
+				ESP_LOGE(tag, "Unable to accept connection: errno %d", errno);
+				/* Close the listening socket */
+				ESP_LOGI(tag, "Shutting down socket");
+				close(sock);
+				close(listen_sock);
+				break; //stop the cycle and waits for a new connection
+			} else {
+				/* Print remote host information */
+				inet_ntoa_r(((struct sockaddr_in *) &remote_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str)-1);
+				ESP_LOGI(tag, "Accepted connection from %s", addr_str);
+				nrecv = recv(sock, rx_char, sizeof(rx_char), 0);
+				rx_char[1]='\0';
 				/* Error receiving data */
 				if (nrecv < 0) {
+					ESP_LOGE(tag, "nrecv: %d", nrecv);
 					ESP_LOGE(tag, "recv failed: errno %d", errno);
-					error = 1;
-
+					/* Close the listening socket */
+					ESP_LOGI(tag, "Shutting down socket");
+					close(sock);
+					close(listen_sock);
+					break; //stop the cycle and waits for a new connection
 				/* Connection closed before message terminated */
 				} else if (nrecv == 0) {
 					ESP_LOGE(tag, "Connection closed prematurely");
-					error = 1;
-
+					/* Close the listening socket */
+					ESP_LOGI(tag, "Shutting down socket");
+					close(sock);
+					close(listen_sock);
+					break; //stop the cycle and waits for a new connection
 				/* Data received */
 				} else {
-					msglen += nrecv;
-
 					/* Check if message is terminated */
-					if (rx_buffer[msglen-1] == 0) {
-						rx_buffer[msglen] = '\0';
-						ESP_LOGI(tag, "Received message:\n%s", rx_buffer);
+					ESP_LOGI(tag, "Received message:\n%s", rx_char);
 
-						/* Try to parse and apply the configuration */
-						if(strcmp(rx_buffer,"R") == 0) {
-							received = 1;
-						} else {
-							error = 1;
-						}
+					/* Try to parse and apply the configuration */
+					if(rx_char[0] == 'R') {
+							received=1;
+					}else{
+						/* Close the listening socket */
+						ESP_LOGI(tag, "Shutting down socket");
+						close(sock);
+						close(listen_sock);
+						break; //stop the cycle and waits for a new connection
 					}
+
+					/* Close the connected socket */
+					close(sock);
 				}
-
-				/* Close the connected socket */
-				close(sock);
 			}
+
+			/* Close the listening socket */
+			ESP_LOGI(tag, "Shutting down socket");
+			close(listen_sock);
+
+			ESP_LOGI(tag, "Rebooting...");
+			esp_restart();
 		}
-
-		if(count >= CONF_MAX_RETRY_COUNT){
-			ESP_LOGE(tag, "Exceeded max number of reboot attempts");
-		}
-
-		/* Close the listening socket */
-		ESP_LOGI(tag, "Shutting down socket");
-		close(listen_sock);
-
-		ESP_LOGI(tag, "Rebooting...");
-		esp_restart();
 	}
 }
 
@@ -591,8 +584,15 @@ static void timer_task(void *arg){
 	}
 }
 
-int create_ipv4_listen_socket() {
-	char *tag = "CONF_REBOOT";	// Tag for logging purposes
+int create_ipv4_listen_socket(char reason) {
+	char *tag; // Tag for logging purposes
+
+	if(reason == 'R'){
+		tag = "REBOOT";
+	}else{
+		tag = "CONF";
+	}
+
 
 	int sock;
 	struct sockaddr_in local_addr;
@@ -600,7 +600,6 @@ int create_ipv4_listen_socket() {
 	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	local_addr.sin_family = AF_INET;
 	local_addr.sin_port = htons(CONFIGURATION_PORT);
-
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock < 0) {
 		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
