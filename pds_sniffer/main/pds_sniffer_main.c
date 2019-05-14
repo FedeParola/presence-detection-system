@@ -358,7 +358,7 @@ void connect_wifi(){
 		printf("Connecting to %s\n", WIFI_SSID);
 
 		// wait for connection
-		printf("Main task: waiting for connection to the wifi network... ");
+		printf("Main task: waiting for connection to the wifi network...\n ");
 		xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
 
 		printf("connected!\n");
@@ -366,9 +366,6 @@ void connect_wifi(){
 		// print the local IP address
 		tcpip_adapter_ip_info_t ip_info;
 		ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
-		printf("IP Address:  %s\n", ip4addr_ntoa(&ip_info.ip));
-		printf("Subnet mask: %s\n", ip4addr_ntoa(&ip_info.netmask));
-		printf("Gateway:     %s\n", ip4addr_ntoa(&ip_info.gw));
 
 		/* DEBUG: check channel */
 		uint8_t channel;
