@@ -35,8 +35,6 @@
 //parameters for the WIFI connection
 #define WIFI_SSID  	"NotSoFastBau"
 #define WIFI_PASS   "Vivailpolitecnico14!"
-//socket client
-#define SERVER_PORT "13000"						//port number of the desktop application
 //masks for packet sniffing
 #define TYPESUBTYPE_MASK 0b0000000011111100
 #define TYPE_PROBE 		 0b0000000001000000
@@ -402,13 +400,12 @@ static esp_err_t event_handler(void *ctx, system_event_t *event){
 	return ESP_OK;
 }
 
-//TODO: need to be tested
 void reboot_task(){
 	char *tag = "REBOOT";	// Tag for logging purposes
 
 	int received;	// Tells if the command is correctly received
 	int nrecv;		// Bytes received in a single recv
-	char rx_char[2];
+	char rx_char;
 
 	int listen_sock;
 	struct sockaddr_in remote_addr;
@@ -444,8 +441,7 @@ void reboot_task(){
 				/* Print remote host information */
 				inet_ntoa_r(((struct sockaddr_in *) &remote_addr)->sin_addr.s_addr, addr_str, sizeof(addr_str)-1);
 				ESP_LOGI(tag, "Accepted connection from %s", addr_str);
-				nrecv = recv(sock, rx_char, sizeof(rx_char), 0);
-				rx_char[1]='\0';
+				nrecv = recv(sock, &rx_char, sizeof(rx_char), 0);
 				/* Error receiving data */
 				if (nrecv < 0) {
 					ESP_LOGE(tag, "nrecv: %d", nrecv);
@@ -466,10 +462,10 @@ void reboot_task(){
 				/* Data received */
 				} else {
 					/* Check if message is terminated */
-					ESP_LOGI(tag, "Received message:\n%s", rx_char);
+					ESP_LOGI(tag, "Received message: %c", rx_char);
 
 					/* Try to parse and apply the configuration */
-					if(rx_char[0] == 'R') {
+					if(rx_char == 'R') {
 							received=1;
 					}else{
 						/* Close the listening socket */
@@ -542,9 +538,9 @@ static void timer_task(void *arg){
 
 				//convert JSON in a string
 				data_json = cJSON_Print(data);
-				//mandiamo the data
+				//send the data
 				if(write(sock, data_json, strlen(data_json))==strlen(data_json)){
-					ets_printf("packets has been sended\n");
+					ets_printf("packets has been send\n");
 				}
 				//destroy the created string
 				free(data_json);
@@ -600,6 +596,7 @@ int create_ipv4_listen_socket(char reason) {
 	local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	local_addr.sin_family = AF_INET;
 	local_addr.sin_port = htons(CONFIGURATION_PORT);
+
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock < 0) {
 		ESP_LOGE(tag, "Unable to create socket: errno %d", errno);
