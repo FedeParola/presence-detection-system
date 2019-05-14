@@ -39,10 +39,10 @@ namespace SniffingManagement {
 
         /* Sniffing start/stop fields */
         private bool sniffing = false;
-        private volatile bool stopping = false; // Can be read/written by multiple threads
         private AutoResetEvent listeningStopped = new AutoResetEvent(false);
         private Task processRecordsTask;
         private SynchCounter handleSnifferTasksCount = new SynchCounter(0);
+        private CancellationTokenSource cancelSniffing;
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
         private TcpListener tcpListener;
@@ -53,8 +53,11 @@ namespace SniffingManagement {
          * Value: list of raw records that needs to be processed
          */
         private ConcurrentDictionary<String, List<Record>> rawRecords = new ConcurrentDictionary<String, List<Record>>();
-        /* For every sniffer (-identified by ip) tells if there are new records to process */
-        private Dictionary<String, bool> newRecordsFlags = new Dictionary<string, bool>();
+
+        /* N of missing transmissions from sniffers before proceeding with processing */
+        private CountdownEvent missingTransmissionsCountdown;
+        /* Enable HandleSniffer tasks to send the configuration to the sniffer */
+        private SemaphoreSlim sniffersConfigurationSemaphore;
 
 
         public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel /* DB config to be added */) {
@@ -134,9 +137,9 @@ namespace SniffingManagement {
             }
 
             /* Initialize structures */
-            foreach (string ip in sniffers.Keys) {
-                newRecordsFlags[ip] = false;
-            }
+            cancelSniffing = new CancellationTokenSource();
+            missingTransmissionsCountdown = new CountdownEvent(sniffers.Count);
+            sniffersConfigurationSemaphore = new SemaphoreSlim(0, sniffers.Count);
 
             /* Start records processing task */
             processRecordsTask = Task.Factory.StartNew(ProcessRecords);
@@ -156,7 +159,7 @@ namespace SniffingManagement {
         }
 
         public void StopSniffing() {
-            stopping = true;
+            cancelSniffing.Cancel();
 
             /* Reset sniffers */
             foreach (Sniffer s in sniffers.Values) {
@@ -169,11 +172,7 @@ namespace SniffingManagement {
                 tcpListener.Stop();     // Triggers a last call to AcceptClient() if it's not already running
             }
             listeningStopped.WaitOne();
-
-            /* Wake ProcessRecords and HandleSniffer tasks eventually waiting */
-            lock (newRecordsFlags) {
-                Monitor.Pulse(newRecordsFlags);
-            }
+            Console.WriteLine("(StopSniffing) Listening task ended");
 
             /* Wait for all HandleSniffer tasks to end */
             handleSnifferTasksCount.WaitZero();
@@ -181,13 +180,15 @@ namespace SniffingManagement {
 
             /* Wait for ProccessRecords task to end */
             processRecordsTask.Wait();
-            
+            Console.WriteLine("(StopSniffing) ProcessRecords task ended");
+
             /* Clear structures */
-            newRecordsFlags.Clear();
             rawRecords.Clear();
+            cancelSniffing.Dispose();
+            missingTransmissionsCountdown.Dispose();
+            sniffersConfigurationSemaphore.Dispose();
 
             sniffing = false;
-            stopping = false;
         }
 
         private void AcceptClient(IAsyncResult ar) {
@@ -195,7 +196,7 @@ namespace SniffingManagement {
 
             /* Avoid a call to tcpListener.Stop() during the following code */
             lock (listener) {
-                if (stopping) {
+                if (cancelSniffing.Token.IsCancellationRequested) {
                     Console.WriteLine("(AcceptClient) Ending accept");
                     listeningStopped.Set();
                     return;
@@ -217,49 +218,43 @@ namespace SniffingManagement {
 
             /* Check the connection is from a known sniffer */
             if (!sniffers.ContainsKey(snifferAddr)) {
-                Console.WriteLine("(HandleSniffer) Received connection from unknown ip " + snifferAddr);
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Received connection from unknown ip " + snifferAddr);
                 client.Close();
-                Console.WriteLine("(HandleSniffer) Connection closed");
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
                 return;
             }
 
-            Console.WriteLine("(HandleSniffer) Receiving records from " + snifferAddr + "...");
+            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
 
             /* Unmarshal the json stream */
             List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
-            Console.WriteLine("(HandleSniffer) Records received");
+            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Records received");
+            rawRecords[snifferAddr] = records;
+
+            missingTransmissionsCountdown.Signal();
+
+            try {
+                sniffersConfigurationSemaphore.Wait(cancelSniffing.Token);
+
+            } catch (OperationCanceledException) {
+                client.Close();
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
+                handleSnifferTasksCount.Dec();
+                return;
+            }
 
             /* Get the current timestamp and send it to the sniffer */
             Configuration conf = new Configuration();
             conf.Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
-            Console.WriteLine("(HandleSniffer) Sending configuration... ");
+            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Sending configuration... ");
             StreamWriter writer = new StreamWriter(client.GetStream());
             serializer.Serialize(writer, conf);
             writer.Flush();
-            Console.WriteLine("(HandleSniffer) Configuration sent");
+            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Configuration sent");
 
             /* Shutdown and end connection */
             client.Close();
-            Console.WriteLine("(HandleSniffer) Connection closed");
-
-            lock (newRecordsFlags) {
-                /* Check that old records have been processed */
-                while (newRecordsFlags[snifferAddr]) {
-                    /* Check if stopping required */
-                    if (stopping) {
-                        handleSnifferTasksCount.Dec();
-                        return;
-                    }
-
-                    /* Wait for a change in flags */
-                    Monitor.Wait(newRecordsFlags);
-                }
-
-                /* Store records into the map */
-                rawRecords[snifferAddr] = records;
-                newRecordsFlags[snifferAddr] = true;
-                Monitor.PulseAll(newRecordsFlags); 
-            }
+            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
 
             handleSnifferTasksCount.Dec();
 
@@ -268,33 +263,20 @@ namespace SniffingManagement {
 
         private void ProcessRecords() {
             while (true) {
-                /* Check if stopping required */
-                if (stopping) {
-                    Console.WriteLine("(ProcessRecords) Stopping ProcessRecords()");
+                /* Wait until all sniffers transmit records */
+                Console.WriteLine("(ProcessRecords) Waiting for new records...");
+                try {
+                    missingTransmissionsCountdown.Wait(cancelSniffing.Token);
+
+                } catch (OperationCanceledException) {
                     return;
                 }
-
-                /* Check that all sniffers transmitted new records */
-                lock (newRecordsFlags) {
-                    foreach (var key in sniffers.Keys) {
-                        while (!newRecordsFlags[key]) {
-                            /* Check if stopping required */
-                            if (stopping) {
-                                Console.WriteLine("(ProcessRecords) Stopping ProcessRecords()");
-                                return;
-                            }
-
-                            /* Wait for a change in flags */
-                            Console.WriteLine("(ProcessRecords) Waiting for new records...");
-                            Monitor.Wait(newRecordsFlags);
-                        }
-                    }
-                }
+                missingTransmissionsCountdown.Reset();
 
                 Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
 
-                ///* Process records here */
-
+                /* Process records here */
+                
                 ///*PARTE DI CODICE DA ORGANIZZARE MEGLIO, CREARE UNA CLASSE APPOSITA! GESTIRE ECCEZIONI!*/
                 //Boolean found;
                 //Boolean diffTimestamp;
@@ -401,19 +383,17 @@ namespace SniffingManagement {
 
                 Console.WriteLine("(ProcessRecords) Records processed");
 
-                /* Mark all records as processed */
-                lock (newRecordsFlags) {
-                    foreach (var key in sniffers.Keys) {
-                        newRecordsFlags[key] = false;
-                    }
-                    Monitor.PulseAll(newRecordsFlags);
-                }
-                Console.WriteLine("(ProcessRecords) All flags reset");
+                /* Enable HandleSniffer tasks to proceed with the configuration of the sniffers */
+                sniffersConfigurationSemaphore.Release(sniffers.Count);
             }
         }
 
         /* TODO: handle exceptions */
         private void ConfigSniffer(String ip) {
+            /* DEBUG ONLY! Remove before submit */
+            if (ip.Equals("127.0.0.1")) return;
+            /* DEBUG ONLY! */
+
             TcpClient client = new TcpClient();
             StreamWriter writer = null;
 
@@ -470,6 +450,10 @@ namespace SniffingManagement {
         private void ResetSniffer(String ip) {
             TcpClient client = new TcpClient();
 
+            /* DEBUG ONLY! Remove before submit */
+            if (ip.Equals("127.0.0.1")) return;
+            /* DEBUG ONLY! */
+
             try {
                 /* Connect to the sniffer */
                 Console.WriteLine("Trying to connect to {0}:{1}...", ip, SNIFFER_LISTEN_PORT);
@@ -488,6 +472,7 @@ namespace SniffingManagement {
                 Console.WriteLine("Connection closed");
             }
         }
+
 
         private class SynchCounter {
             private uint counter;
