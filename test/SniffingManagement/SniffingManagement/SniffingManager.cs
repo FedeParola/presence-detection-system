@@ -266,7 +266,7 @@ namespace SniffingManagement {
 
                 Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
 
-                List<Packet> packets = processor.process(rawRecords.ToArray());
+                List<Packet> packets = processor.Process(rawRecords.ToArray());
                 int result = db.InsertRecords(packets);
 
                 Console.WriteLine("(ProcessRecords) Records processed");

@@ -24,7 +24,7 @@ namespace SniffingManagement
         }
 
         /*GESTIRE ECCEZIONI!*/
-        public List<Packet> process(KeyValuePair<String, List<Record>>[] rawRecords)
+        public List<Packet> Process(KeyValuePair<String, List<Record>>[] rawRecords)
         {
             List<Packet> packets = new List<Packet>();
 
@@ -121,7 +121,7 @@ namespace SniffingManagement
                     TrilaterationCalculator TC = new TrilaterationCalculator();
                     for (int i = 0; i < espCount; i++)
                     {
-                        double d = rssiToMeters(RSSIs[i]);
+                        double d = RssiToMeters(RSSIs[i]);
                         Sniffer s = sniffers[rawRecords[i].Key];
                         Measurement m = new Measurement(s.Position, d);
                         TC.AddMeasurement(m);
@@ -143,7 +143,7 @@ namespace SniffingManagement
             return packets;
         }
 
-        /*private Point computePosition()
+        /*private Point ComputePosition()
         {
             TrilaterationCalculator TC = new TrilaterationCalculator();
             for (int i = 0; i < espCount; i++)
@@ -156,7 +156,7 @@ namespace SniffingManagement
             Point p = TC.Compute();
         }*/
 
-        private double rssiToMeters(int RSSI)
+        private double RssiToMeters(int RSSI)
         {
             return Math.Pow(10, (((MEASURED_POWER) - RSSI) / (10 * ENVIRONMENTAL_FACTOR)));
         }
