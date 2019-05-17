@@ -8,9 +8,10 @@ using SniffingManagement.Trilateration;
 
 namespace SniffingManagement.Persistence
 {
-    /*TODO: manage exceptions*/
+    /*TODO: manage exceptions and prevent SQL injections (e.g. SSIDs)*/
     class DBManager
     {
+        /*TODO: creare il database da codice*/
         private NpgsqlConnection conn;
         public DBManager(String host, String user, String pass, String database)
         {
@@ -18,9 +19,9 @@ namespace SniffingManagement.Persistence
                                         "; Username = " + user +
                                         "; Password = " + pass +
                                         "; Database = " + database);
-            conn.Open();
         }
 
+        /*TODO: aggiungere la chiamata a questo metodo nello sniffingManager*/
         public void CloseConn()
         {
             if (conn != null)
@@ -29,23 +30,32 @@ namespace SniffingManagement.Persistence
             }
         }
 
-        public int InsertRecord(String hash, String MAC, String SSID, long timestamp, double x, double y)
+        public int InsertRecords(List<Packet> packets)
         {
+            int returnValue;
+ 
+            conn.Open();
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
-                cmd.CommandText = 
-                    "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") " +
-                    "VALUES (" +
-                    "'" + hash + "', " +
-                    "'" + MAC + "', " +
-                    "'" + SSID + "', " +
-                    timestamp + ", " +
-                    x + ", " +
-                    y +
-                    ");";
-                return cmd.ExecuteNonQuery();
+                cmd.CommandText =
+                    "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") ";
+                foreach (Packet p in packets){
+                    cmd.CommandText += "VALUES (" +
+                                        "'" + p.Hash + "', " +
+                                        "'" + p.MacAddr + "', " +
+                                        "'" + p.Ssid + "', " +
+                                        p.Timestamp + ", " +
+                                        p.Position.X + ", " +
+                                        p.Position.Y +
+                                        ");";
+                }
+                    
+                returnValue = cmd.ExecuteNonQuery();
             }
+            conn.Close();
+
+            return returnValue;
         }
 
         /*DA TESTARE*/
@@ -56,6 +66,7 @@ namespace SniffingManagement.Persistence
             int result;
             long startingTimeInstant = new DateTimeOffset(DateTime.Now).ToUnixTimeMilliseconds() - timeInterval;
 
+            conn.Open();
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
@@ -68,6 +79,7 @@ namespace SniffingManagement.Persistence
                     result = reader.GetInt32(0);
                 }
             }
+            conn.Close();
 
             return result;
         }
@@ -79,6 +91,7 @@ namespace SniffingManagement.Persistence
             Dictionary <String, Point> DevicesPositions = new Dictionary<String, Point>();
             long startingTimeInstant = new DateTimeOffset(DateTime.Now).ToUnixTimeMilliseconds() - timeInterval;
 
+            conn.Open();
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
@@ -99,6 +112,7 @@ namespace SniffingManagement.Persistence
                     }
                 }
             }
+            conn.Close();
 
             return DevicesPositions;
         }
@@ -111,6 +125,7 @@ namespace SniffingManagement.Persistence
         {
             List<String> macAddresses = new List<String>();
 
+            conn.Open();
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
@@ -131,6 +146,7 @@ namespace SniffingManagement.Persistence
                     }
                 }
             }
+            conn.Close();
 
             return macAddresses;
 
@@ -144,6 +160,7 @@ namespace SniffingManagement.Persistence
         {
             Dictionary <String, List<Point>> positionsSequence = new Dictionary<String, List<Point>>();
 
+            conn.Open();
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
@@ -168,6 +185,7 @@ namespace SniffingManagement.Persistence
                     }
                 }
             }
+            conn.Close();
 
             return positionsSequence;
         }

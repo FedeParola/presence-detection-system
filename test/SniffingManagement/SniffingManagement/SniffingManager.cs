@@ -13,24 +13,14 @@ using System.Threading.Tasks;
 
 namespace SniffingManagement {
     class SniffingManager {
-        /*Il comparer e la parte di codice relativa al processamento dei record è da organizzare meglio 
-         (creare una classe apposita!)*/
-        class Comparer : IComparer
-        {
-            public int Compare(Object x, Object y)
-            {
-                var a = (KeyValuePair<String, List<Record>>)x;
-                var b = (KeyValuePair<String, List<Record>>)y;
-                return a.Value.Count.CompareTo(b.Value.Count);
-            }
-        }
-        private IComparer comparer = new Comparer();
-        //private DBManager db = new DBManager("127.0.0.1", "user", "pass", "pds");
-
+        
         private const int SNIFFER_LISTEN_PORT = 13000;
         private const byte ACK_BYTE = (byte) 'A';
         private const byte RESET_BYTE = (byte) 'R';
         private const byte TERMINATION_BYTE = 0;
+
+        private DBManager db = new DBManager("127.0.0.1", "user", "pass", "pds");
+        private RecordsProcessor processor;
 
         /* Following properties are set during the construction and can't be changed (for now) */
         public UInt16 Port { get; }
@@ -140,6 +130,7 @@ namespace SniffingManagement {
             cancelSniffing = new CancellationTokenSource();
             missingTransmissionsCountdown = new CountdownEvent(sniffers.Count);
             sniffersConfigurationSemaphore = new SemaphoreSlim(0, sniffers.Count);
+            processor = new RecordsProcessor(sniffers);
 
             /* Start records processing task */
             processRecordsTask = Task.Factory.StartNew(ProcessRecords);
@@ -275,111 +266,8 @@ namespace SniffingManagement {
 
                 Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
 
-                /* Process records here */
-                
-                ///*PARTE DI CODICE DA ORGANIZZARE MEGLIO, CREARE UNA CLASSE APPOSITA! GESTIRE ECCEZIONI!*/
-                //Boolean found;
-                //Boolean diffTimestamp;
-                //Boolean nextRecord;
-                //long timeTolerance = 1 * 1000; //1 second
-                //var rawRecordsArray = rawRecords.ToArray();
-                //int espCount = rawRecordsArray.Length;
-                ///*Opt: Sort the array of rawRecords in ascending order for the number of records associated to each esp*/
-                //Array.Sort(rawRecordsArray, 0, espCount, comparer);
-                ///*Opt: mark the first packet considered for each list of packets; when working on the next packet
-                // * (which will be more recent) we can start looking for it among the ones captured by the others esp32 
-                // * starting from the marked packet and ignoring the previous ones (they will be older)*/
-                //int[] startIndex = new int[espCount];
-                //for (int i = 0; i < espCount; i++)
-                //{
-                //    startIndex[i] = 0;
-                //}
-                //Boolean startIndexUpdated;
-
-                //int[] RSSIs = new int[espCount];
-
-                ///*Eliminate "duplicate" packets (packets with the same hash within the same time window)*/
-                //var recordsList = rawRecordsArray[0].Value.ToArray();
-                //for (int i = 0; i < recordsList.Length; i++)
-                //{
-                //    nextRecord = false;
-                //    for (int j = i + 1; j < recordsList.Length && nextRecord == false; j++)
-                //    {
-                //        if (recordsList[j].Timestamp > recordsList[i].Timestamp + timeTolerance)
-                //        {
-                //            nextRecord = true;
-                //        }
-                //        else if (recordsList[j].Timestamp > recordsList[i].Timestamp - timeTolerance)
-                //        {
-                //            if (recordsList[i].Hash.Equals(recordsList[j].Hash))
-                //            {
-                //                rawRecordsArray[0].Value.RemoveAt(j);
-                //            }
-                //        }
-                //    }
-                //}
-
-                ///*Go through the records of the first esp32*/
-                //foreach (var record in rawRecordsArray[0].Value)
-                //{
-                //    RSSIs[0] = record.Rssi;
-                //    nextRecord = false;
-                //    /*Go through each esp32*/
-                //    for (int i = 1; i < espCount && nextRecord == false; i++)
-                //    {
-                //        recordsList = rawRecordsArray[i].Value.ToArray();
-                //        found = false;
-                //        diffTimestamp = false;
-                //        startIndexUpdated = false;
-                //        /*Go through each packet captured by the esp32*/
-                //        for (int j = startIndex[i]; j < recordsList.Length && found == false && diffTimestamp == false; j++)
-                //        {
-                //            /*index i represents the i-th esp while index j represents the j-th record captured by the esp*/
-                //            if (recordsList[j].Timestamp > record.Timestamp + timeTolerance)
-                //            {
-                //                /*The esp32 we are considering did not capture the record: 
-                //                 * we can consider the next record and ignore this one*/
-                //                diffTimestamp = true;
-                //            }
-                //            else if (recordsList[j].Timestamp > record.Timestamp - timeTolerance)
-                //            {
-                //                if (startIndexUpdated == false)
-                //                {
-                //                    startIndex[i] = j;
-                //                    startIndexUpdated = true;
-                //                }
-                //                if (recordsList[j].Hash.Equals(record.Hash))
-                //                {
-                //                    /*The esp32 we are considering did capture the record: 
-                //                     * we have to see if the others did the same*/
-                //                    found = true;
-                //                    RSSIs[i] = recordsList[j].Rssi;
-                //                }
-                //            }
-                //        }
-                //        if (diffTimestamp == true || found == false)
-                //        {
-                //            nextRecord = true;
-                //        }
-                //    }
-
-                //    if (nextRecord == false)
-                //    {
-                //        /*The record was captured by each and any esp32*/
-                //        /*Compute position*/
-                //        TrilaterationCalculator TC = new TrilaterationCalculator();
-                //        for (int i = 0; i < espCount; i++)
-                //        {
-                //            double d = Math.Pow(10, (((-52) - RSSIs[i]) / (10 * 1.8)));
-                //            sniffers.TryGetValue(rawRecordsArray[i].Key, out Sniffer s);
-                //            Measurement m = new Measurement(s.Position, d);
-                //            TC.AddMeasurement(m);
-                //        }
-                //        /*Insert the record into the db*/
-                //        Point p = TC.Compute();
-                //        db.InsertRecord(record.Hash, record.MacAddr, record.Ssid, record.Timestamp, p.X, p.Y);
-                //    }
-                //}
+                List<Packet> packets = processor.process(rawRecords.ToArray());
+                int result = db.InsertRecords(packets);
 
                 Console.WriteLine("(ProcessRecords) Records processed");
 
