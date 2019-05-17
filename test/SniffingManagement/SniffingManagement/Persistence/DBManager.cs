@@ -30,6 +30,7 @@ namespace SniffingManagement.Persistence
             }
         }
 
+        /*X e Y causano problemi nella insert se hanno la virgola!*/
         public int InsertRecords(List<Packet> packets)
         {
             int returnValue;
@@ -39,17 +40,18 @@ namespace SniffingManagement.Persistence
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") ";
+                    "INSERT INTO \"Record\" (\"Hash\", \"MAC\", \"SSID\", \"Timestamp\", \"X\", \"Y\") VALUES ";
                 foreach (Packet p in packets){
-                    cmd.CommandText += "VALUES (" +
+                    cmd.CommandText += "(" +
                                         "'" + p.Hash + "', " +
                                         "'" + p.MacAddr + "', " +
                                         "'" + p.Ssid + "', " +
                                         p.Timestamp + ", " +
                                         p.Position.X + ", " +
                                         p.Position.Y +
-                                        ");";
+                                        "), ";
                 }
+                cmd.CommandText = cmd.CommandText.Remove(cmd.CommandText.Length - 2, 2) + ";";
                     
                 returnValue = cmd.ExecuteNonQuery();
             }

@@ -264,15 +264,20 @@ namespace SniffingManagement {
                 }
                 missingTransmissionsCountdown.Reset();
 
-                Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
-
-                List<Packet> packets = processor.Process(rawRecords.ToArray());
-                int result = db.InsertRecords(packets);
-
-                Console.WriteLine("(ProcessRecords) Records processed");
+                /* Make a copy of raw records for processing */
+                var rawRecordsArray = rawRecords.ToArray();
 
                 /* Enable HandleSniffer tasks to proceed with the configuration of the sniffers */
                 sniffersConfigurationSemaphore.Release(sniffers.Count);
+
+                Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
+
+                List<Packet> packets = processor.Process(rawRecordsArray);
+                if (packets.Count > 0){
+                    int result = db.InsertRecords(packets);
+                }
+
+                Console.WriteLine("(ProcessRecords) Records processed");
             }
         }
 
