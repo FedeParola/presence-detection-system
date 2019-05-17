@@ -47,8 +47,8 @@ namespace SniffingManagement.Persistence
                                         "'" + p.MacAddr + "', " +
                                         "'" + p.Ssid + "', " +
                                         p.Timestamp + ", " +
-                                        p.Position.X + ", " +
-                                        p.Position.Y +
+                                        p.Position.X.ToString("0.00") + ", " +
+                                        p.Position.Y.ToString("0.00") +
                                         "), ";
                 }
                 cmd.CommandText = cmd.CommandText.Remove(cmd.CommandText.Length - 2, 2) + ";";

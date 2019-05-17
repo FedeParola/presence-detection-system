@@ -72,10 +72,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration.cs" />
+    <Compile Include="Packet.cs" />
     <Compile Include="Persistence\DBManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Record.cs" />
+    <Compile Include="RecordsProcessor.cs" />
     <Compile Include="Sniffer.cs" />
     <Compile Include="SniffingManager.cs" />
     <Compile Include="Trilateration\Measurement.cs" />
