@@ -515,6 +515,7 @@ static void timer_callback(void* arg) {
 }
 
 static void timer_task(void *arg){
+	char *tag = "TIMER-TASK";	// Tag for logging purposes
 	int event;
 	char recv_buf[100]; 	//buffer to save response data coming from the desktop app
 	int r;					//number of chars read by the read funtion at every try
@@ -537,8 +538,12 @@ static void timer_task(void *arg){
 				data_json = cJSON_Print(data);
 				//send the data
 				if(write(sock, data_json, strlen(data_json))==strlen(data_json)){
-					ets_printf("packets has been send\n");
+					ESP_LOGI(tag, "Packets sent");
 				}
+
+				// Close the write end of the socket to signal end of data
+				shutdown(sock, SHUT_WR);
+
 				//destroy the created string
 				free(data_json);
 
@@ -556,7 +561,7 @@ static void timer_task(void *arg){
 
 				//close the socket
 				close(sock);
-				ets_printf("socket has been closed\n");
+				ESP_LOGI(tag, "Socket closed");
 
 				//set the new system date with the value received from the desktop app
 				set_date(cJSON_GetObjectItem(serverResponse,"timestamp")->valueint);
@@ -572,7 +577,7 @@ static void timer_task(void *arg){
 
 				//Restart the timer
 				ESP_ERROR_CHECK( esp_timer_start_once(timer, timer_countdown) );
-				ESP_LOGI("TIMER-TASK", "Timer restarted, current val: %lld us", esp_timer_get_time());
+				ESP_LOGI(tag, "Timer restarted, current val: %lld us", esp_timer_get_time());
 		}
 	}
 }

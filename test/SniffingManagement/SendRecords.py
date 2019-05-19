@@ -11,6 +11,7 @@ msg = file.read()
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((TCP_IP, TCP_PORT))
 s.send(msg.encode())
+s.shutdown(s.SHUT_WR)
 data = s.recv(BUFFER_SIZE)
 s.close()
  
