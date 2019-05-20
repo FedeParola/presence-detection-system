@@ -221,12 +221,12 @@ namespace SniffingManagement.Persistence
                     {
                         if (!positionsSequence.ContainsKey(reader.GetString(0)))
                         {
-                            positionsSequence.Add(reader.GetString(0), new List<Point>());
+                            positionsSequence.Add(reader.GetString(0), new List<Location>());
                         }
 
                         Point p = new Point(reader.GetDouble(2), reader.GetDouble(3));
-                        Location l = new Location(p, reader.GetDouble(1));
-                        positionsSequence[reader.getString(0)].Add(l);
+                        Location l = new Location(p, reader.GetInt64(1));
+                        positionsSequence[reader.GetString(0)].Add(l);
                     }
                 }
                 conn.Close();
