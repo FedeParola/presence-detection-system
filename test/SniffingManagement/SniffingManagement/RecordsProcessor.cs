@@ -10,17 +10,22 @@ namespace SniffingManagement
 {
     class RecordsProcessor
     {
-        private Dictionary<String, Sniffer> sniffers;
-        private IComparer comparer;
-
         private const long TIME_TOLERANCE = 1 * 1000; //1 second
         private const int MEASURED_POWER = -59;
         private const double ENVIRONMENTAL_FACTOR = 2;
 
-        public RecordsProcessor(Dictionary<string, Sniffer> sniffers)
+        public Double RoomLength { get; }
+        public Double RoomWidth { get; }
+
+        private Dictionary<String, Sniffer> sniffers;
+        private IComparer comparer;
+
+        public RecordsProcessor(Dictionary<string, Sniffer> sniffers, Double roomLength, Double roomWidth)
         {
             comparer = new Comparer();
             this.sniffers = sniffers;
+            RoomLength = roomLength;
+            RoomWidth = roomWidth;
         }
 
         public List<Packet> Process(KeyValuePair<String, List<Record>>[] rawRecords)
@@ -87,15 +92,17 @@ namespace SniffingManagement
                     }
                     Point position = TC.Compute();
 
-                    Packet p = new Packet()
-                    {
-                        Hash = record.Hash,
-                        MacAddr = record.MacAddr,
-                        Ssid = record.Ssid,
-                        Timestamp = record.Timestamp,
-                        Position = position
-                    };
-                    packets.Add(p);
+                    if (!(position.X < 0  ||  position.Y < 0  ||  position.X > RoomLength  ||  position.Y > RoomWidth)){
+                        Packet p = new Packet()
+                        {
+                            Hash = record.Hash,
+                            MacAddr = record.MacAddr,
+                            Ssid = record.Ssid,
+                            Timestamp = record.Timestamp,
+                            Position = position
+                        };
+                        packets.Add(p);
+                    }
                 }
             }
 

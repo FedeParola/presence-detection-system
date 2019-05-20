@@ -25,6 +25,9 @@ namespace SniffingManagement {
         public UInt16 Port { get; }
         public UInt16 SniffingPeriod { get; }
         public Byte Channel { get; }
+        public Double RoomLength { get; }
+        public Double RoomWidth { get; }
+        
 
         /* Sniffing start/stop fields */
         private bool sniffing = false;
@@ -49,10 +52,13 @@ namespace SniffingManagement {
         private SemaphoreSlim sniffersConfigurationSemaphore;
 
 
-        public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel /* DB config to be added */) {
+        public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel, Double roomLength, 
+                                Double roomWidth /* DB config to be added */) {
             Port = port;
             SniffingPeriod = sniffingPeriod;
             Channel = channel;
+            RoomLength = roomLength;
+            RoomWidth = roomWidth;
         }
 
         public void AddSniffer(Sniffer s) {
@@ -129,7 +135,7 @@ namespace SniffingManagement {
             cancelSniffing = new CancellationTokenSource();
             missingTransmissionsCountdown = new CountdownEvent(sniffers.Count);
             sniffersConfigurationSemaphore = new SemaphoreSlim(0, sniffers.Count);
-            processor = new RecordsProcessor(sniffers);
+            processor = new RecordsProcessor(sniffers, RoomLength, RoomWidth);
 
             /* Start records processing task */
             processRecordsTask = Task.Factory.StartNew(ProcessRecords);

@@ -13,9 +13,9 @@ namespace SniffingManagement.Persistence
      Test all the queries!*/
     class DBManager
     {
-        private NumberFormatInfo nfi = new NumberFormatInfo();
-
         private NpgsqlConnection conn;
+        private NumberFormatInfo nfi = new NumberFormatInfo();
+        
         public DBManager(String host, String user, String pass, String database)
         {
             /*Creates the db 'database' if it doesn't exist*/
@@ -39,6 +39,7 @@ namespace SniffingManagement.Persistence
             {
                 using (var cmd = new NpgsqlCommand())
                 {
+                    /*This syntax doesn't exist! And do we really want to create the db via the application?*/
                     cmd.Connection = adminConn;
                     cmd.CommandText =
                         "CREATE DATABASE IF NOT EXISTS \"" + dbName + "\" " +
@@ -95,7 +96,6 @@ namespace SniffingManagement.Persistence
                     cmd.CommandText += String.Format("(" +
                                         "'" + p.Hash + "', " +
                                         "'" + p.MacAddr + "', " +
-                                        //"'" + p.Ssid + "', " +
                                         "@ssid{0}," +
                                         p.Timestamp + ", " +
                                         p.Position.X.ToString(nfi) + ", " +
