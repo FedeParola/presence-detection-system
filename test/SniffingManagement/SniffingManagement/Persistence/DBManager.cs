@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,11 +13,13 @@ namespace SniffingManagement.Persistence
      Test all the queries!*/
     class DBManager
     {
+        private NumberFormatInfo nfi = new NumberFormatInfo();
+
         private NpgsqlConnection conn;
         public DBManager(String host, String user, String pass, String database)
         {
             /*Creates the db 'database' if it doesn't exist*/
-            CreateDB(host, database);
+            //CreateDB(host, database);
 
             conn = new NpgsqlConnection("Host = " + host + ";" + 
                                         "Username = " + user + ";" +
@@ -27,6 +30,8 @@ namespace SniffingManagement.Persistence
              (the db and the user to which the table belongs probably are the same of the connection  
              used to execute the command, so I don't need to specify them in the creation of the table)*/
             CreateRecordsTable();
+
+            nfi.NumberDecimalSeparator = ".";
         }
 
         private void CreateDB(String host, String dbName){
@@ -36,9 +41,9 @@ namespace SniffingManagement.Persistence
                 {
                     cmd.Connection = adminConn;
                     cmd.CommandText =
-                        "CREATE DATABASE IF NOT EXISTS " + dbName +
-                        "WITH OWNER = user" +
-                        "ENCODING = 'UTF8'" +
+                        "CREATE DATABASE IF NOT EXISTS \"" + dbName + "\" " +
+                        "WITH OWNER = user " +
+                        "ENCODING = 'UTF8' " +
                         "CONNECTION LIMIT = -1;";
                     adminConn.Open();
                     cmd.ExecuteNonQuery();
@@ -93,8 +98,8 @@ namespace SniffingManagement.Persistence
                                         //"'" + p.Ssid + "', " +
                                         "@ssid{0}," +
                                         p.Timestamp + ", " +
-                                        p.Position.X.ToString("0.00") + ", " +
-                                        p.Position.Y.ToString("0.00") +
+                                        p.Position.X.ToString(nfi) + ", " +
+                                        p.Position.Y.ToString(nfi) +
                                         "), ", counter);
                     cmd.Parameters.AddWithValue("@ssid" + counter, p.Ssid);
                     counter++;

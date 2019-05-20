@@ -14,8 +14,8 @@ namespace SniffingManagement
         private IComparer comparer;
 
         private const long TIME_TOLERANCE = 1 * 1000; //1 second
-        private const int MEASURED_POWER = -52;
-        private const double ENVIRONMENTAL_FACTOR = 1.8;
+        private const int MEASURED_POWER = -59;
+        private const double ENVIRONMENTAL_FACTOR = 2;
 
         public RecordsProcessor(Dictionary<string, Sniffer> sniffers)
         {
