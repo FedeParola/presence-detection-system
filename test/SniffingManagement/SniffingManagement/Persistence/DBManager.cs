@@ -9,8 +9,7 @@ using SniffingManagement.Trilateration;
 
 namespace SniffingManagement.Persistence
 {
-    /*TODO: manage exceptions?
-     Test all the queries!*/
+    /*TODO: Test all the queries!*/
     class DBManager
     {
         private NpgsqlConnection conn;
@@ -123,7 +122,6 @@ namespace SniffingManagement.Persistence
 
             using (var cmd = new NpgsqlCommand())
             {
-                /*rilevati continuativamente?*/
                 cmd.Connection = conn;
                 cmd.CommandText = 
                     "SELECT COUNT (DISTINCT \"MAC\") " +
@@ -159,8 +157,7 @@ namespace SniffingManagement.Persistence
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
-                    while(reader.Read())
-                    {
+                    while(reader.Read()){
                         Point p = new Point(reader.GetDouble(1), reader.GetDouble(2));
                         DevicesPositions.Add(reader.GetString(0), p);
                     }
@@ -173,34 +170,37 @@ namespace SniffingManagement.Persistence
 
         /*OPTIONAL EXTENSIONS*/
 
-        /*The 'minThreshold' represents the minimum number of times a device must be detected to be considered 'talkative' */
-        public List<String> GetTalkativeDevices(long startInstant, long stopInstant, int minThreshold){
-            List<String> macAddresses = new List<String>();
+        /*The 'devicesCount' represents the number of 'talkative' devices considered (the top n)*/
+        public List<Tuple<String, long>> GetTalkativeDevices(long startInstant, long stopInstant, int devicesCount){
+            List<Tuple<String, long>> detections = new List<Tuple<String, long>>();
 
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "SELECT \"MAC\", \"NoOfAppearances\" FROM (" +
-                    "   SELECT \"MAC\", COUNT(*) AS \"NoOfAppearances\" " +
+                    "SELECT \"MAC\", \"Timestamp\" " +
+                    "FROM \"Record\"" +
+                    "WHERE \"Timestamp\" >=" + startInstant + "AND" +
+                    "      \"Timestamp\" <" + stopInstant + "AND" +
+                    "      \"MAC\" IN(" +
+                    "   SELECT \"MAC\"" +
                     "   FROM \"Record\"" +
                     "   WHERE \"Timestamp\" >=" + startInstant + "AND" +
-                             "\"Timestamp\" <" + stopInstant +
-                    "   GROUP BY \"MAC\" " +
-                    "   ) \"Macs\"" +
-                    "WHERE \"NoOfAppearances\" >= " + minThreshold + ";";
+                    "         \"Timestamp\" <" + stopInstant +
+                    "   GROUP BY \"MAC\" " +  
+                    "   ORDER BY COUNT(*) DESC" +
+                    "   LIMIT" + devicesCount + ");";
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
-                    while (reader.Read())
-                    {
-                        macAddresses.Add(reader.GetString(0));
+                    while (reader.Read()){
+                        detections.Add(new Tuple<String, long>(reader.GetString(0), reader.GetInt64(1)));
                     }
                 }
                 conn.Close();
             }           
 
-            return macAddresses;
+            return detections;
 
             /*...e riportante IN QUALI INTERVALLI TALI DISPOSITIVI SONO STATI RILEVATI! */
         }
@@ -222,10 +222,8 @@ namespace SniffingManagement.Persistence
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
-                    while (reader.Read())
-                    {
-                        if (!positionsSequence.ContainsKey(reader.GetString(0)))
-                        {
+                    while (reader.Read()){
+                        if (!positionsSequence.ContainsKey(reader.GetString(0))){
                             positionsSequence.Add(reader.GetString(0), new List<Location>());
                         }
 
