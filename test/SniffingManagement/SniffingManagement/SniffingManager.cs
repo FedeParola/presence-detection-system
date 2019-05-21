@@ -13,30 +13,23 @@ using System.Threading.Tasks;
 
 namespace SniffingManagement {
     class SniffingManager {
-        /*Il comparer e la parte di codice relativa al processamento dei record è da organizzare meglio 
-         (creare una classe apposita!)*/
-        class Comparer : IComparer
-        {
-            public int Compare(Object x, Object y)
-            {
-                var a = (KeyValuePair<String, List<Record>>)x;
-                var b = (KeyValuePair<String, List<Record>>)y;
-                return a.Value.Count.CompareTo(b.Value.Count);
-            }
-        }
-        private IComparer comparer = new Comparer();
-        //private DBManager db = new DBManager("127.0.0.1", "user", "pass", "pds");
-
         private const int SNIFFER_LISTEN_PORT = 13000;
         private const byte ACK_BYTE = (byte) 'A';
         private const byte RESET_BYTE = (byte) 'R';
         private const byte TERMINATION_BYTE = 0;
 
-        /* Following properties are set during the construction and can't be changed (for now) */
-        public UInt16 Port { get; }
-        public UInt16 SniffingPeriod { get; }
-        public Byte Channel { get; }
+        private DBManager db;
+        private RecordsProcessor processor;
+        private TcpListener tcpListener;
+        private JsonSerializer serializer = new JsonSerializer();
 
+        /* Public configuration properties */
+        public UInt16 Port { get; set; }
+        public UInt16 SniffingPeriod { get; set; }
+        public Byte Channel { get; set; }
+        public Double RoomLength { get; set; }
+        public Double RoomWidth { get; set; }
+        
         /* Sniffing start/stop fields */
         private bool sniffing = false;
         private AutoResetEvent listeningStopped = new AutoResetEvent(false);
@@ -45,8 +38,6 @@ namespace SniffingManagement {
         private CancellationTokenSource cancelSniffing;
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
-        private TcpListener tcpListener;
-        private JsonSerializer serializer = new JsonSerializer();
         /* 
          * Records received from the last communication with the sniffers.
          * Key: the string representation of the ip addr of the sniffer that sent the records
@@ -56,14 +47,18 @@ namespace SniffingManagement {
 
         /* N of missing transmissions from sniffers before proceeding with processing */
         private CountdownEvent missingTransmissionsCountdown;
-        /* Enable HandleSniffer tasks to send the configuration to the sniffer */
+        /* Enable HandleSniffer tasks to send the configuration to the sniffers */
         private SemaphoreSlim sniffersConfigurationSemaphore;
 
 
-        public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel /* DB config to be added */) {
+        public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel, Double roomLength, 
+                                Double roomWidth, DBManager db) {
             Port = port;
             SniffingPeriod = sniffingPeriod;
             Channel = channel;
+            RoomLength = roomLength;
+            RoomWidth = roomWidth;
+            this.db = db;
         }
 
         public void AddSniffer(Sniffer s) {
@@ -140,6 +135,7 @@ namespace SniffingManagement {
             cancelSniffing = new CancellationTokenSource();
             missingTransmissionsCountdown = new CountdownEvent(sniffers.Count);
             sniffersConfigurationSemaphore = new SemaphoreSlim(0, sniffers.Count);
+            processor = new RecordsProcessor(sniffers, RoomLength, RoomWidth);
 
             /* Start records processing task */
             processRecordsTask = Task.Factory.StartNew(ProcessRecords);
@@ -151,10 +147,20 @@ namespace SniffingManagement {
 
             /* Config sniffers */
             foreach (Sniffer s in sniffers.Values) {
-                ConfigSniffer(s.Ip);
-                s.Status = Sniffer.SnifferStatus.Running;
-            }
+                try {
+                    ConfigSniffer(s.Ip);
+                    s.Status = Sniffer.SnifferStatus.Running;
 
+                /* Error configuring the sniffers */
+                } catch (Exception e) when (e is SocketException || e is IOException) {
+                    /* Stop sniffing and notify the caller */
+                    Console.WriteLine("Error configuring sniffer " + s.Ip + ": " + e.Message);
+                    s.Status = Sniffer.SnifferStatus.Error;
+                    StopSniffing();
+                    throw e; // Maybe wrap it in a custom Exception
+                }
+            }
+            
             sniffing = true;
         }
 
@@ -163,8 +169,17 @@ namespace SniffingManagement {
 
             /* Reset sniffers */
             foreach (Sniffer s in sniffers.Values) {
-                ResetSniffer(s.Ip);
-                s.Status = Sniffer.SnifferStatus.Stopped;
+                try {
+                    if (s.Status == Sniffer.SnifferStatus.Running || s.Status == Sniffer.SnifferStatus.Error) {
+                        ResetSniffer(s.Ip);
+                        s.Status = Sniffer.SnifferStatus.Stopped;
+                    }
+
+                /* Error in the communication with the sniffer */
+                } catch (Exception e) when (e is SocketException || e is IOException) {
+                    /* The sniffer should reset by itself, just log the exception and go on */
+                    Console.WriteLine("Error resetting sniffer " + s.Ip + ": " + e.Message);
+                }
             }
 
             /* Stop listening task */
@@ -211,56 +226,62 @@ namespace SniffingManagement {
 
         /* TODO: handle exceptions */
         private void HandleSniffer(object arg) {
+            string snifferAddr = null;
             TcpClient client = (TcpClient) arg;
 
-            /* Retrieve sniffer ip addr */
-            string snifferAddr = ((IPEndPoint) client.Client.RemoteEndPoint).Address.ToString();
-
-            /* Check the connection is from a known sniffer */
-            if (!sniffers.ContainsKey(snifferAddr)) {
-                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Received connection from unknown ip " + snifferAddr);
-                client.Close();
-                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
-                return;
-            }
-
-            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
-
-            /* Unmarshal the json stream */
-            List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
-            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Records received");
-            rawRecords[snifferAddr] = records;
-
-            missingTransmissionsCountdown.Signal();
-
             try {
+                /* Retrieve sniffer ip addr */
+                snifferAddr = ((IPEndPoint) client.Client.RemoteEndPoint).Address.ToString();
+
+                /* Check the connection is from a known sniffer */
+                if (!sniffers.ContainsKey(snifferAddr)) {
+                    Console.WriteLine("(HandleSniffer " + snifferAddr + ") Received connection from unknown ip " + snifferAddr);
+                    return;
+                }
+                
+                /* Unmarshal the json stream */
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
+                List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Records received");
+                rawRecords[snifferAddr] = records;
+
+                /* Signal that records for the current sniffer are ready */
+                missingTransmissionsCountdown.Signal();
+
+                /* 
+                 * Wait to proceed with configuration (awakes when all sniffers have transmitted records)
+                 * Throws OperationCanceledExceptionif sniffing is stopped while waiting
+                 */
                 sniffersConfigurationSemaphore.Wait(cancelSniffing.Token);
 
+                /* Get the current timestamp and send it to the sniffer */
+                Configuration conf = new Configuration();
+                conf.Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Sending configuration... ");
+                StreamWriter writer = new StreamWriter(client.GetStream());
+                serializer.Serialize(writer, conf);
+                writer.Flush();
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Configuration sent");
+
+            /* Sniffing stopped while waiting to proceed with configuration */
             } catch (OperationCanceledException) {
+                /* No action needed, simply close the connection */
+
+            /* Exception in the communication with the sniffer */
+            } catch (Exception e) when (e is SocketException || e is IOException) {
+
+
+            } finally {
+                /* Shutdown and end connection */
                 client.Close();
                 Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
                 handleSnifferTasksCount.Dec();
-                return;
             }
-
-            /* Get the current timestamp and send it to the sniffer */
-            Configuration conf = new Configuration();
-            conf.Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds();
-            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Sending configuration... ");
-            StreamWriter writer = new StreamWriter(client.GetStream());
-            serializer.Serialize(writer, conf);
-            writer.Flush();
-            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Configuration sent");
-
-            /* Shutdown and end connection */
-            client.Close();
-            Console.WriteLine("(HandleSniffer " + snifferAddr + ") Connection closed");
-
-            handleSnifferTasksCount.Dec();
 
             return;
         }
 
+        /* TODO: set timeout */
         private void ProcessRecords() {
             while (true) {
                 /* Wait until all sniffers transmit records */
@@ -273,122 +294,23 @@ namespace SniffingManagement {
                 }
                 missingTransmissionsCountdown.Reset();
 
-                Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
-
-                /* Process records here */
-                
-                ///*PARTE DI CODICE DA ORGANIZZARE MEGLIO, CREARE UNA CLASSE APPOSITA! GESTIRE ECCEZIONI!*/
-                //Boolean found;
-                //Boolean diffTimestamp;
-                //Boolean nextRecord;
-                //long timeTolerance = 1 * 1000; //1 second
-                //var rawRecordsArray = rawRecords.ToArray();
-                //int espCount = rawRecordsArray.Length;
-                ///*Opt: Sort the array of rawRecords in ascending order for the number of records associated to each esp*/
-                //Array.Sort(rawRecordsArray, 0, espCount, comparer);
-                ///*Opt: mark the first packet considered for each list of packets; when working on the next packet
-                // * (which will be more recent) we can start looking for it among the ones captured by the others esp32 
-                // * starting from the marked packet and ignoring the previous ones (they will be older)*/
-                //int[] startIndex = new int[espCount];
-                //for (int i = 0; i < espCount; i++)
-                //{
-                //    startIndex[i] = 0;
-                //}
-                //Boolean startIndexUpdated;
-
-                //int[] RSSIs = new int[espCount];
-
-                ///*Eliminate "duplicate" packets (packets with the same hash within the same time window)*/
-                //var recordsList = rawRecordsArray[0].Value.ToArray();
-                //for (int i = 0; i < recordsList.Length; i++)
-                //{
-                //    nextRecord = false;
-                //    for (int j = i + 1; j < recordsList.Length && nextRecord == false; j++)
-                //    {
-                //        if (recordsList[j].Timestamp > recordsList[i].Timestamp + timeTolerance)
-                //        {
-                //            nextRecord = true;
-                //        }
-                //        else if (recordsList[j].Timestamp > recordsList[i].Timestamp - timeTolerance)
-                //        {
-                //            if (recordsList[i].Hash.Equals(recordsList[j].Hash))
-                //            {
-                //                rawRecordsArray[0].Value.RemoveAt(j);
-                //            }
-                //        }
-                //    }
-                //}
-
-                ///*Go through the records of the first esp32*/
-                //foreach (var record in rawRecordsArray[0].Value)
-                //{
-                //    RSSIs[0] = record.Rssi;
-                //    nextRecord = false;
-                //    /*Go through each esp32*/
-                //    for (int i = 1; i < espCount && nextRecord == false; i++)
-                //    {
-                //        recordsList = rawRecordsArray[i].Value.ToArray();
-                //        found = false;
-                //        diffTimestamp = false;
-                //        startIndexUpdated = false;
-                //        /*Go through each packet captured by the esp32*/
-                //        for (int j = startIndex[i]; j < recordsList.Length && found == false && diffTimestamp == false; j++)
-                //        {
-                //            /*index i represents the i-th esp while index j represents the j-th record captured by the esp*/
-                //            if (recordsList[j].Timestamp > record.Timestamp + timeTolerance)
-                //            {
-                //                /*The esp32 we are considering did not capture the record: 
-                //                 * we can consider the next record and ignore this one*/
-                //                diffTimestamp = true;
-                //            }
-                //            else if (recordsList[j].Timestamp > record.Timestamp - timeTolerance)
-                //            {
-                //                if (startIndexUpdated == false)
-                //                {
-                //                    startIndex[i] = j;
-                //                    startIndexUpdated = true;
-                //                }
-                //                if (recordsList[j].Hash.Equals(record.Hash))
-                //                {
-                //                    /*The esp32 we are considering did capture the record: 
-                //                     * we have to see if the others did the same*/
-                //                    found = true;
-                //                    RSSIs[i] = recordsList[j].Rssi;
-                //                }
-                //            }
-                //        }
-                //        if (diffTimestamp == true || found == false)
-                //        {
-                //            nextRecord = true;
-                //        }
-                //    }
-
-                //    if (nextRecord == false)
-                //    {
-                //        /*The record was captured by each and any esp32*/
-                //        /*Compute position*/
-                //        TrilaterationCalculator TC = new TrilaterationCalculator();
-                //        for (int i = 0; i < espCount; i++)
-                //        {
-                //            double d = Math.Pow(10, (((-52) - RSSIs[i]) / (10 * 1.8)));
-                //            sniffers.TryGetValue(rawRecordsArray[i].Key, out Sniffer s);
-                //            Measurement m = new Measurement(s.Position, d);
-                //            TC.AddMeasurement(m);
-                //        }
-                //        /*Insert the record into the db*/
-                //        Point p = TC.Compute();
-                //        db.InsertRecord(record.Hash, record.MacAddr, record.Ssid, record.Timestamp, p.X, p.Y);
-                //    }
-                //}
-
-                Console.WriteLine("(ProcessRecords) Records processed");
+                /* Make a copy of raw records for processing */
+                var rawRecordsArray = rawRecords.ToArray();
 
                 /* Enable HandleSniffer tasks to proceed with the configuration of the sniffers */
                 sniffersConfigurationSemaphore.Release(sniffers.Count);
+
+                Console.WriteLine("(ProcessRecords) All records ready, beginning processing");
+
+                List<Packet> packets = processor.Process(rawRecordsArray);
+                if (packets.Count > 0){
+                    int result = db.InsertRecords(packets);
+                }
+
+                Console.WriteLine("(ProcessRecords) Records processed");
             }
         }
 
-        /* TODO: handle exceptions */
         private void ConfigSniffer(String ip) {
             /* DEBUG ONLY! Remove before submit */
             if (ip.Equals("127.0.0.1")) return;
@@ -413,7 +335,7 @@ namespace SniffingManagement {
                 Configuration conf = new Configuration {
                     Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
                     IpAddress = (client.Client.LocalEndPoint as IPEndPoint).Address.ToString(),
-                    Port = Port.ToString(), // Why don't we use a number???
+                    Port = Port.ToString(),
                     Channel = Channel,
                     SniffingPeriod = SniffingPeriod
                 };
@@ -446,7 +368,6 @@ namespace SniffingManagement {
             }
         }
 
-        /* TODO: handle exceptions */
         private void ResetSniffer(String ip) {
             TcpClient client = new TcpClient();
 
