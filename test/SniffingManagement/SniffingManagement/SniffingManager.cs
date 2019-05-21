@@ -18,17 +18,18 @@ namespace SniffingManagement {
         private const byte RESET_BYTE = (byte) 'R';
         private const byte TERMINATION_BYTE = 0;
 
-        private DBManager db = new DBManager("127.0.0.1", "user", "pass", "pds");
+        private DBManager db;
         private RecordsProcessor processor;
+        private TcpListener tcpListener;
+        private JsonSerializer serializer = new JsonSerializer();
 
-        /* Following properties are set during the construction and can't be changed (for now) */
-        public UInt16 Port { get; }
-        public UInt16 SniffingPeriod { get; }
-        public Byte Channel { get; }
-        public Double RoomLength { get; }
-        public Double RoomWidth { get; }
+        /* Public configuration properties */
+        public UInt16 Port { get; set; }
+        public UInt16 SniffingPeriod { get; set; }
+        public Byte Channel { get; set; }
+        public Double RoomLength { get; set; }
+        public Double RoomWidth { get; set; }
         
-
         /* Sniffing start/stop fields */
         private bool sniffing = false;
         private AutoResetEvent listeningStopped = new AutoResetEvent(false);
@@ -37,8 +38,6 @@ namespace SniffingManagement {
         private CancellationTokenSource cancelSniffing;
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
-        private TcpListener tcpListener;
-        private JsonSerializer serializer = new JsonSerializer();
         /* 
          * Records received from the last communication with the sniffers.
          * Key: the string representation of the ip addr of the sniffer that sent the records
@@ -53,12 +52,13 @@ namespace SniffingManagement {
 
 
         public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel, Double roomLength, 
-                                Double roomWidth /* DB config to be added */) {
+                                Double roomWidth, DBManager db) {
             Port = port;
             SniffingPeriod = sniffingPeriod;
             Channel = channel;
             RoomLength = roomLength;
             RoomWidth = roomWidth;
+            this.db = db;
         }
 
         public void AddSniffer(Sniffer s) {
@@ -155,6 +155,7 @@ namespace SniffingManagement {
                 } catch (Exception e) when (e is SocketException || e is IOException) {
                     /* Stop sniffing and notify the caller */
                     Console.WriteLine("Error configuring sniffer " + s.Ip + ": " + e.Message);
+                    s.Status = Sniffer.SnifferStatus.Error;
                     StopSniffing();
                     throw e; // Maybe wrap it in a custom Exception
                 }
@@ -169,15 +170,16 @@ namespace SniffingManagement {
             /* Reset sniffers */
             foreach (Sniffer s in sniffers.Values) {
                 try {
-                    ResetSniffer(s.Ip);
+                    if (s.Status == Sniffer.SnifferStatus.Running || s.Status == Sniffer.SnifferStatus.Error) {
+                        ResetSniffer(s.Ip);
+                        s.Status = Sniffer.SnifferStatus.Stopped;
+                    }
 
                 /* Error in the communication with the sniffer */
                 } catch (Exception e) when (e is SocketException || e is IOException) {
                     /* The sniffer should reset by itself, just log the exception and go on */
                     Console.WriteLine("Error resetting sniffer " + s.Ip + ": " + e.Message);
                 }
-
-                s.Status = Sniffer.SnifferStatus.Stopped;
             }
 
             /* Stop listening task */
@@ -222,6 +224,7 @@ namespace SniffingManagement {
             }
         }
 
+        /* TODO: handle exceptions */
         private void HandleSniffer(object arg) {
             string snifferAddr = null;
             TcpClient client = (TcpClient) arg;
@@ -278,6 +281,7 @@ namespace SniffingManagement {
             return;
         }
 
+        /* TODO: set timeout */
         private void ProcessRecords() {
             while (true) {
                 /* Wait until all sniffers transmit records */
@@ -307,7 +311,6 @@ namespace SniffingManagement {
             }
         }
 
-        /* TODO: handle exceptions */
         private void ConfigSniffer(String ip) {
             /* DEBUG ONLY! Remove before submit */
             if (ip.Equals("127.0.0.1")) return;
@@ -365,7 +368,6 @@ namespace SniffingManagement {
             }
         }
 
-        /* TODO: handle exceptions */
         private void ResetSniffer(String ip) {
             TcpClient client = new TcpClient();
 

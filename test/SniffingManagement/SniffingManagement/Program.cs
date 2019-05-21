@@ -1,13 +1,15 @@
 ﻿using System;
+using SniffingManagement.Persistence;
 using SniffingManagement.Trilateration;
 
 namespace SniffingManagement {
     class Program {
         static void Main(string[] args) {
-            SniffingManager sm = new SniffingManager(13000, 60, 1);
+            SniffingManager sm = new SniffingManager(13000, 60, 1, 5, 5, new DBManager("127.0.0.1", "user", "pass", "pds"));
 
-            sm.AddSniffer(new Sniffer("192.168.1.83", new Point(0, 0)));
-            sm.AddSniffer(new Sniffer("192.168.1.84", new Point(5, 5)));
+            sm.AddSniffer(new Sniffer("192.168.1.13", new Point(0, 0)));
+            sm.AddSniffer(new Sniffer("192.168.1.14", new Point(5, 5)));
+            sm.AddSniffer(new Sniffer("192.168.1.15", new Point(5, 5)));
 
             sm.StartSniffing();
             Console.WriteLine("(Main) Sniffing started");
