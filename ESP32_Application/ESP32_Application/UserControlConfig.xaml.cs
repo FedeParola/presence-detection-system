@@ -24,6 +24,7 @@ namespace ESP32_Application
     {
         ESPdatiGlobali globalData;
         List<ESPmomentanea> ESPcollection;
+        static Boolean statusS = false; //false = esp system not working
         public UserControlConfig(ESPdatiGlobali globalData, List<ESPmomentanea> ESPcollection)
         {
             //IPotesi : Indirizzi IP inseriti sempre correttamente e mai duplicati
@@ -32,10 +33,18 @@ namespace ESP32_Application
             this.ESPcollection = ESPcollection;
             this.GenerateGrid();
             this.WritePrjParameters();
+
         }
 
         private void WritePrjParameters()
         {
+            //enable/disable buttons checking status
+            if (statusS)
+                confPar.IsEnabled = false;
+            if (statusS)
+                buttonNew.IsEnabled = false;
+
+            //write prjParameters
             lblwidth.Content = "Room width : " + globalData.Width + "m";
             lblhe.Content = "Room length : " + globalData.Length + "m";
             lblch.Content = "ESP channel : " + globalData.Channel;
@@ -99,6 +108,10 @@ namespace ESP32_Application
                 StackPanel stpbtn = new StackPanel();
                 Button buttonconf = new Button();
                 Button buttonrem = new Button();
+                if (statusS)
+                    buttonconf.IsEnabled = false;
+                if (statusS)
+                    buttonrem.IsEnabled = false;
                 buttonconf.Content = "Configuration";
                 buttonrem.Content = "Remove";
                 buttonconf.Background = new SolidColorBrush(Color.FromArgb(255, 49, 87, 126));
@@ -186,6 +199,11 @@ namespace ESP32_Application
             ESPcollection.RemoveAt(i);
             globalData.EspNumber = globalData.EspNumber - 1;
             this.GenerateGrid();
+        }
+
+        public static void setMyStatus(Boolean v)
+        {
+            statusS = v;
         }
     }
 }
