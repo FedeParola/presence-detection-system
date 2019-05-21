@@ -24,6 +24,7 @@
             <Label x:Name="lblhe" Margin="0,15,0,0" HorizontalAlignment="Center"  FontSize="23"/>
             <Label x:Name="lblch" Margin="0,15,0,0" HorizontalAlignment="Center"   FontSize="23"/>
             <Label x:Name="lbltimer" Margin="0,15,0,0" HorizontalAlignment="Center"   FontSize="23"/>
+            <Label x:Name="lblPort" Margin="0,15,0,0" HorizontalAlignment="Center"   FontSize="23"/>
             <Button Content="Configure Parameters" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click_confG" />
             <Button x:Name="buttonNew" Content="Add new ESP32 module" Margin="0,100,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click_New" />
         </StackPanel>

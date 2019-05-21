@@ -5,8 +5,33 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:ESP32_Application"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="641" d:DesignWidth="1188">
+
     <Grid>
-        <Label Content="User Control di Localizzazione" VerticalAlignment="Center" FontSize="36" Margin="30"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="820"/>
+            <ColumnDefinition Width="auto"/>
+        </Grid.ColumnDefinitions>
+        <Border Margin="3,3,8,3" Grid.Column="0" BorderThickness="3,3,3,3" BorderBrush="#FF31577E">
+            <Canvas>
+                <Ellipse Margin="200" Fill="Coral" Height="100" Width="100"></Ellipse>
+                <Ellipse Margin="100" Fill="Blue" Height="100" Width="100"></Ellipse>
+                <Ellipse Margin="300" Fill="Black" Height="100" Width="100"></Ellipse>
+                <Ellipse Margin="400" Fill="Green" Height="100" Width="100"></Ellipse>
+                <Ellipse Fill="red" Height="100" Width="100"></Ellipse>
+            </Canvas>
+        </Border>
+        <TabControl Background="White" HorizontalAlignment="Left" Height="621" Margin="821,0,-339,0" VerticalAlignment="Top" Width="347" Grid.ColumnSpan="2">
+            <TabItem Header="Live Localization" FontSize="15">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Text="Insert interval time to consider device detection from current time : " FontSize="20" Margin="57,60,67.333,0"/>
+                    <TextBox Margin="57,30,41.333,0"/>
+                    <Button Content="Start Live Localization" Margin="0,40,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Device Animation" FontSize="15">
+                
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

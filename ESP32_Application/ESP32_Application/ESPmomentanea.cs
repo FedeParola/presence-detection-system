@@ -11,16 +11,18 @@ namespace ESP32_Application
         int espNumber;
         int channel;
         int width;
-        int height;
+        int length;
         int timer;
+        int port;
 
-        public ESPdatiGlobali(int espNumber, int channel, int width, int height, int timer)
+        public ESPdatiGlobali(int espNumber, int channel, int width, int length, int timer, int port)
         {
             this.espNumber = espNumber;
             this.channel = channel;
             this.width = width;
-            this.height = height;
+            this.length = length;
             this.timer = timer;
+            this.port = port;
         }
         public int EspNumber
         {
@@ -40,10 +42,10 @@ namespace ESP32_Application
             set { width = value; }
         }
 
-        public int Height
+        public int Length
         {
-            get { return height; }
-            set { height = value; }
+            get { return length; }
+            set { length = value; }
         }
 
         public int Timer
@@ -52,20 +54,26 @@ namespace ESP32_Application
             set { timer = value; }
         }
 
+        public int Port
+        {
+            get { return port; }
+            set { port = value; }
+        }
+
     }
     public class ESPmomentanea
     {
         string id;
         string ipadd;
-        string port;
+        string stato;
         int x;
         int y;
 
-        public ESPmomentanea(string id, string ipadd, string port, int x, int y)
+        public ESPmomentanea(string id, string ipadd, string stato, int x, int y)
         {
             this.id = id;
             this.ipadd = ipadd;
-            this.port = port;
+            this.stato = stato;
             this.x = x;
             this.y = y;
         }
@@ -83,8 +91,8 @@ namespace ESP32_Application
 
         public string Port
         {
-            get { return port; }
-            set { port = value; }
+            get { return stato; }
+            set { stato = value; }
         }
 
         public int X

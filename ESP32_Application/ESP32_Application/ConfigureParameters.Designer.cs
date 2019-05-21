@@ -37,12 +37,14 @@
             this.materialLabel3 = new MaterialSkin.Controls.MaterialLabel();
             this.materialLabel2 = new MaterialSkin.Controls.MaterialLabel();
             this.materialLabel1 = new MaterialSkin.Controls.MaterialLabel();
+            this.txtPort = new System.Windows.Forms.TextBox();
+            this.materialLabel5 = new MaterialSkin.Controls.MaterialLabel();
             this.SuspendLayout();
             // 
             // buttonSavePrj
             // 
             this.buttonSavePrj.Depth = 0;
-            this.buttonSavePrj.Location = new System.Drawing.Point(315, 388);
+            this.buttonSavePrj.Location = new System.Drawing.Point(315, 463);
             this.buttonSavePrj.MouseState = MaterialSkin.MouseState.HOVER;
             this.buttonSavePrj.Name = "buttonSavePrj";
             this.buttonSavePrj.Primary = true;
@@ -71,7 +73,7 @@
             // txtH
             // 
             this.txtH.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.txtH.Location = new System.Drawing.Point(315, 171);
+            this.txtH.Location = new System.Drawing.Point(315, 176);
             this.txtH.Name = "txtH";
             this.txtH.Size = new System.Drawing.Size(202, 35);
             this.txtH.TabIndex = 14;
@@ -116,12 +118,12 @@
             this.materialLabel2.Depth = 0;
             this.materialLabel2.Font = new System.Drawing.Font("Roboto", 11F);
             this.materialLabel2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(222)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
-            this.materialLabel2.Location = new System.Drawing.Point(78, 171);
+            this.materialLabel2.Location = new System.Drawing.Point(78, 176);
             this.materialLabel2.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialLabel2.Name = "materialLabel2";
             this.materialLabel2.Size = new System.Drawing.Size(146, 27);
             this.materialLabel2.TabIndex = 10;
-            this.materialLabel2.Text = "Room height :";
+            this.materialLabel2.Text = "Room length :";
             // 
             // materialLabel1
             // 
@@ -136,11 +138,34 @@
             this.materialLabel1.TabIndex = 9;
             this.materialLabel1.Text = "Room width :";
             // 
+            // txtPort
+            // 
+            this.txtPort.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txtPort.Location = new System.Drawing.Point(315, 383);
+            this.txtPort.Name = "txtPort";
+            this.txtPort.Size = new System.Drawing.Size(202, 35);
+            this.txtPort.TabIndex = 19;
+            // 
+            // materialLabel5
+            // 
+            this.materialLabel5.AutoSize = true;
+            this.materialLabel5.Depth = 0;
+            this.materialLabel5.Font = new System.Drawing.Font("Roboto", 11F);
+            this.materialLabel5.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(222)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
+            this.materialLabel5.Location = new System.Drawing.Point(78, 383);
+            this.materialLabel5.MouseState = MaterialSkin.MouseState.HOVER;
+            this.materialLabel5.Name = "materialLabel5";
+            this.materialLabel5.Size = new System.Drawing.Size(53, 27);
+            this.materialLabel5.TabIndex = 18;
+            this.materialLabel5.Text = "Port";
+            // 
             // ConfigureParameters
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(646, 463);
+            this.ClientSize = new System.Drawing.Size(752, 539);
+            this.Controls.Add(this.txtPort);
+            this.Controls.Add(this.materialLabel5);
             this.Controls.Add(this.buttonSavePrj);
             this.Controls.Add(this.txtTim);
             this.Controls.Add(this.txtCh);
@@ -171,5 +196,7 @@
         private MaterialSkin.Controls.MaterialLabel materialLabel3;
         private MaterialSkin.Controls.MaterialLabel materialLabel2;
         private MaterialSkin.Controls.MaterialLabel materialLabel1;
+        private System.Windows.Forms.TextBox txtPort;
+        private MaterialSkin.Controls.MaterialLabel materialLabel5;
     }
 }
