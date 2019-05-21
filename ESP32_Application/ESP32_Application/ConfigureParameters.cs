@@ -33,6 +33,7 @@ namespace ESP32_Application
             String textH = txtH.Text;
             String textCh = txtCh.Text;
             String textTim = txtTim.Text;
+            String textPor = txtPort.Text;
             int flag = 0;
             Configuration config = ConfigurationManager.OpenExeConfiguration(Application.ExecutablePath);
 
@@ -46,7 +47,7 @@ namespace ESP32_Application
             }
             if (!string.IsNullOrWhiteSpace(textH))
             {
-                globalData.Height = Int32.Parse(textH);
+                globalData.Length = Int32.Parse(textH);
                 config.AppSettings.Settings["height"].Value = textH;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
@@ -68,8 +69,16 @@ namespace ESP32_Application
                 ConfigurationManager.RefreshSection("appSettings");
                 flag = 1;
             }
+            if (!string.IsNullOrWhiteSpace(textPor))
+            {
+                globalData.Port = Int32.Parse(textPor);
+                config.AppSettings.Settings["port"].Value = textPor;
+                config.Save(ConfigurationSaveMode.Modified);
+                ConfigurationManager.RefreshSection("appSettings");
+                flag = 1;
+            }
 
-            if(flag == 0)
+            if (flag == 0)
             {
                 this.Close();
                 MessageBox.Show("No changes on parameters");

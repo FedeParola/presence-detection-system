@@ -37,9 +37,10 @@ namespace ESP32_Application
         private void WritePrjParameters()
         {
             lblwidth.Content = "Room width : " + globalData.Width + "m";
-            lblhe.Content = "Room height : " + globalData.Height + "m";
+            lblhe.Content = "Room length : " + globalData.Length + "m";
             lblch.Content = "ESP channel : " + globalData.Channel;
             lbltimer.Content = "ESP timer : " + globalData.Timer + "s";
+            lblPort.Content = "ESP port : " + globalData.Port ;
         }
 
         private void GenerateGrid()
@@ -60,6 +61,8 @@ namespace ESP32_Application
                 ESPList.RowDefinitions.Add(rowDef);
             }
 
+            Console.WriteLine("Numero esp da stampare : " + globalData.EspNumber + "\n\n");
+
             for (int i = 0; i < globalData.EspNumber; i++)
             {
 
@@ -78,7 +81,7 @@ namespace ESP32_Application
 
 
                 StackPanel stplbl = new StackPanel();
-                stplbl.Margin = new Thickness(35, 20, 0, 0);
+                stplbl.Margin = new Thickness(35, 30, 0, 0);
                 Label lblip = new Label();
                 lblip.Content = "Indirizzo IP : " + ESPcollection[i].Ipadd;
                 lblip.FontSize = 23;
@@ -88,13 +91,9 @@ namespace ESP32_Application
                 Label lblloc = new Label();
                 lblloc.Content = "Posizione (x,y) : " + ESPcollection[i].X + ", " + ESPcollection[i].Y;
                 lblloc.FontSize = 23;
-                Label lblport = new Label();
-                lblport.Content = "Porta : " + ESPcollection[i].Port;
-                lblport.FontSize = 23;
                 stplbl.Children.Add(lblip);
                 stplbl.Children.Add(lblstate);
                 stplbl.Children.Add(lblloc);
-                stplbl.Children.Add(lblport);
                 Grid.SetColumn(stplbl, 0);
 
                 StackPanel stpbtn = new StackPanel();
@@ -173,7 +172,6 @@ namespace ESP32_Application
         {
             int i;
             var btn = sender as Button;
-            MessageBox.Show("Cliccato btn rem con name = " + btn.Name);
             Configuration config = ConfigurationManager.OpenExeConfiguration(Assembly.GetExecutingAssembly().Location);
             for (i=0; i<ESPcollection.Count; i++)
             {

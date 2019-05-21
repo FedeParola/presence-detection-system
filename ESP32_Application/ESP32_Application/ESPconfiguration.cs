@@ -37,7 +37,6 @@ namespace ESP32_Application
             String textip = txtIP.Text;
             String textX = txtX.Text;
             String textY = txtY.Text;
-            String textP = txtPort.Text;
             int flag = 0; int i;
             Configuration config = ConfigurationManager.OpenExeConfiguration(Application.ExecutablePath);
 
@@ -45,7 +44,7 @@ namespace ESP32_Application
             //Coming from "add new ESP"
             if (btnName.Equals("buttonNew"))
             {
-                if (string.IsNullOrWhiteSpace(textip) || string.IsNullOrWhiteSpace(textP) || string.IsNullOrWhiteSpace(textX) || string.IsNullOrWhiteSpace(textY))
+                if (string.IsNullOrWhiteSpace(textip) ||  string.IsNullOrWhiteSpace(textX) || string.IsNullOrWhiteSpace(textY))
                 {
                     MessageBox.Show("Error : Enter all data to continue");
                     return;
@@ -60,13 +59,13 @@ namespace ESP32_Application
 
                     //Nota : non aprire il file app.config, non riporta le modifiche in fase di sviluppo. 
                     //aggiungo una ESP con i valori delle textBox
-                    string value = textP + "," + textX + ";" + textY;
+                    string value = textX + ";" + textY;
                     config.AppSettings.Settings.Add(textip, value);
                     config.Save(ConfigurationSaveMode.Modified);
                     ConfigurationManager.RefreshSection("appSettings");
 
                     globalData.EspNumber = globalData.EspNumber + 1;
-                    ESPmomentanea esp = new ESPmomentanea(MainWindow.GenerateID(textip), textip, textP, Int32.Parse(textY), Int32.Parse(textY));
+                    ESPmomentanea esp = new ESPmomentanea(MainWindow.GenerateID(textip), textip, "attivo", Int32.Parse(textY), Int32.Parse(textY));
                     ESPcollection.Add(esp);
 
                     this.Close();
@@ -82,8 +81,7 @@ namespace ESP32_Application
                         break;
                     }
                 }
-                string[] value = ConfigurationManager.AppSettings[ESPcollection[i].Ipadd].Split(",");
-                string[] positions = value[1].Split(";");
+                string[] positions = ConfigurationManager.AppSettings[ESPcollection[i].Ipadd].Split(";");
 
                 if (!string.IsNullOrWhiteSpace(textip))
                 {
@@ -105,7 +103,7 @@ namespace ESP32_Application
                 if (!string.IsNullOrWhiteSpace(textX))
                 {
                     ESPcollection[i].X = Int32.Parse(textX);
-                    string newValue = value[0] + "," + textX + ";" + positions[1];
+                    string newValue = textX + ";" + positions[1];
                     config.AppSettings.Settings[ESPcollection[i].Ipadd].Value = newValue;
                     config.Save(ConfigurationSaveMode.Modified);
                     ConfigurationManager.RefreshSection("appSettings");
@@ -114,17 +112,8 @@ namespace ESP32_Application
                 if (!string.IsNullOrWhiteSpace(textY))
                 {
                     ESPcollection[i].Y = Int32.Parse(textY);
-                    string newValue = value[0] + "," + positions[0] + ";" + textY;
+                    string newValue = positions[0] + ";" + textY;
                     config.AppSettings.Settings[ESPcollection[i].Ipadd].Value = textY;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
-                    flag = 1;
-                }
-                if (!string.IsNullOrWhiteSpace(textP))
-                {
-                    ESPcollection[i].Port = textP;
-                    string newValue = textP + "," + positions[0] + ";" + positions[1];
-                    config.AppSettings.Settings[ESPcollection[i].Ipadd].Value = newValue;
                     config.Save(ConfigurationSaveMode.Modified);
                     ConfigurationManager.RefreshSection("appSettings");
                     flag = 1;

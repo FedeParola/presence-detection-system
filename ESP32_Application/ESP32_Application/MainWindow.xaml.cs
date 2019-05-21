@@ -37,23 +37,26 @@ namespace ESP32_Application
             ESPcollection = new List<ESPmomentanea>();
             NameValueCollection appSettings = ConfigurationManager.AppSettings;
 
-            globalData = new ESPdatiGlobali((appSettings.Count-4), 
+            globalData = new ESPdatiGlobali((appSettings.Count-5), 
                 Int32.Parse(ConfigurationManager.AppSettings["channel"]),
                 Int32.Parse(ConfigurationManager.AppSettings["width"]), 
-                Int32.Parse(ConfigurationManager.AppSettings["height"]),
-                Int32.Parse(ConfigurationManager.AppSettings["timer"]));
+                Int32.Parse(ConfigurationManager.AppSettings["length"]),
+                Int32.Parse(ConfigurationManager.AppSettings["timer"]),
+                Int32.Parse(ConfigurationManager.AppSettings["port"]));
 
-            for (int i=4; i<appSettings.Count; i++)
+            for (int i=5; i<appSettings.Count; i++)
             {
-                string[] value = appSettings[i].Split(",");
-                string[] position = value[1].Split(";");
+                string[] position = appSettings[i].Split(";");
                 int x = Int32.Parse(position[0]);
                 int y = Int32.Parse(position[1]);
-                ESPmomentanea esp = new ESPmomentanea(GenerateID(appSettings.GetKey(i)), appSettings.GetKey(i), value[0], x, y);
+                ESPmomentanea esp = new ESPmomentanea(GenerateID(appSettings.GetKey(i)), appSettings.GetKey(i), "attivo", x, y);
                 ESPcollection.Add(esp);
             }
             InitializeComponent();
-
+            GridMain.Children.Clear();
+            UserControl usc = new UserControlLoc(globalData);
+            GridMain.Children.Add(usc);
+            MainTitle.Text = "Live users Localization";
         }
 
         private void ButtonOpenMenu_Click(object sender, RoutedEventArgs e)
