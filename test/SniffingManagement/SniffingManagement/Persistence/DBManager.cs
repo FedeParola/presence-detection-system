@@ -205,20 +205,23 @@ namespace SniffingManagement.Persistence
             /*...e riportante IN QUALI INTERVALLI TALI DISPOSITIVI SONO STATI RILEVATI! */
         }
 
-         /*Ha senso considerare posizioni relative allo stesso mac
-         temporalmente molto vicine?*/
-        public Dictionary<String, List<Location>> GetDevicesMovements(long startInstant, long stopInstant){
+        public Dictionary<String, List<Location>> GetDevicesMovements(long startInstant, long stopInstant, long resolution){
             Dictionary <String, List<Location>> positionsSequence = new Dictionary<String, List<Location>>();
 
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "SELECT \"MAC\", \"Timestamp\", \"X\", \"Y\"" +
-                    "FROM \"Record\"" +
-                    "WHERE \"Timestamp\" >= " + startInstant + "AND" +
-                    "      \"Timestamp\" < " + stopInstant + "" +
-                    "ORDER BY \"Timestamp\" ASC;";
+                "SELECT \"MAC\", \"X\", \"Y\", (\"Timestamp\" - \"Timestamp\" % " + resolution + ")time_sample" +
+                "FROM \"Record\"" +
+                "WHERE \"Id\" IN" +
+                "(" +
+                "   SELECT MAX(\"Id\")" +
+                "   FROM \"Record\"" +
+                "   WHERE \"Timestamp\" >= " + startInstant + "AND" +
+                "         \"Timestamp\" < " + stopInstant +
+                "   GROUP BY (\"Timestamp\" - \"Timestamp\" % " + resolution + "), \"MAC\"" +
+                ");";
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
