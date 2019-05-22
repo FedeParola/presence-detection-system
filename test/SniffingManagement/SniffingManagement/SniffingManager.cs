@@ -17,11 +17,15 @@ namespace SniffingManagement {
         private const byte ACK_BYTE = (byte) 'A';
         private const byte RESET_BYTE = (byte) 'R';
         private const byte TERMINATION_BYTE = 0;
+        private const int ERROR_TIMEOUT_SECS = 10;
+
+        public delegate void ErrorHandler();
 
         private DBManager db;
         private RecordsProcessor processor;
         private TcpListener tcpListener;
         private JsonSerializer serializer = new JsonSerializer();
+        private ErrorHandler errorHandler;
 
         /* Public configuration properties */
         public UInt16 Port { get; set; }
@@ -36,6 +40,7 @@ namespace SniffingManagement {
         private Task processRecordsTask;
         private SynchCounter handleSnifferTasksCount = new SynchCounter(0);
         private CancellationTokenSource cancelSniffing;
+        private object stopSniffingLock = new object(); // Enables mutual exclusion executing StopSniffing()
 
         private Dictionary<string, Sniffer> sniffers = new Dictionary<string, Sniffer>();
         /* 
@@ -52,13 +57,14 @@ namespace SniffingManagement {
 
 
         public SniffingManager(UInt16 port, UInt16 sniffingPeriod, Byte channel, Double roomLength, 
-                                Double roomWidth, DBManager db) {
+                                Double roomWidth, DBManager db, ErrorHandler handler) {
             Port = port;
             SniffingPeriod = sniffingPeriod;
             Channel = channel;
             RoomLength = roomLength;
             RoomWidth = roomWidth;
             this.db = db;
+            this.errorHandler = handler;
         }
 
         public void AddSniffer(Sniffer s) {
@@ -126,6 +132,10 @@ namespace SniffingManagement {
         }
 
         public void StartSniffing() {
+            if(sniffing) {
+                throw new InvalidOperationException("Already sniffing, call StopSniffing() first");
+            }
+
             /* Check enough sniffers configured */
             if (sniffers.Count < 1 /* CAMBIALO A 2!!! */) {
                 throw new InvalidOperationException("Needed at least 2 sniffers to start sniffing");
@@ -165,52 +175,57 @@ namespace SniffingManagement {
         }
 
         public void StopSniffing() {
-            cancelSniffing.Cancel();
-
-            /* Reset sniffers */
-            foreach (Sniffer s in sniffers.Values) {
-                try {
-                    if (s.Status == Sniffer.SnifferStatus.Running || s.Status == Sniffer.SnifferStatus.Error) {
-                        ResetSniffer(s.Ip);
-                        s.Status = Sniffer.SnifferStatus.Stopped;
-                    }
-
-                /* Error in the communication with the sniffer */
-                } catch (Exception e) when (e is SocketException || e is IOException) {
-                    /* The sniffer should reset by itself, just log the exception and go on */
-                    Console.WriteLine("Error resetting sniffer " + s.Ip + ": " + e.Message);
+            lock (stopSniffingLock) {
+                if (!sniffing) {
+                    return;
                 }
+
+                cancelSniffing.Cancel();
+
+                /* Reset sniffers */
+                foreach (Sniffer s in sniffers.Values) {
+                    try {
+                        if (s.Status == Sniffer.SnifferStatus.Running || s.Status == Sniffer.SnifferStatus.Error) {
+                            ResetSniffer(s.Ip);
+                            s.Status = Sniffer.SnifferStatus.Stopped;
+                        }
+
+                        /* Error in the communication with the sniffer */
+                    } catch (Exception e) when (e is SocketException || e is IOException) {
+                        s.Status = Sniffer.SnifferStatus.Error;
+                        Console.WriteLine("Error resetting sniffer " + s.Ip + ": " + e.Message);
+                    }
+                }
+
+                /* Stop listening task */
+                lock (tcpListener) {
+                    tcpListener.Stop();     // Triggers a last call to AcceptClient() if it's not already running
+                }
+                listeningStopped.WaitOne();
+                Console.WriteLine("(StopSniffing) Listening task ended");
+
+                /* Wait for all HandleSniffer tasks to end */
+                handleSnifferTasksCount.WaitZero();
+                Console.WriteLine("(StopSniffing) All HandleSniffer tasks ended");
+
+                /* Wait for ProccessRecords task to end */
+                processRecordsTask.Wait();
+                Console.WriteLine("(StopSniffing) ProcessRecords task ended");
+
+                /* Clear structures */
+                rawRecords.Clear();
+                cancelSniffing.Dispose();
+                missingTransmissionsCountdown.Dispose();
+                sniffersConfigurationSemaphore.Dispose();
+
+                sniffing = false;
             }
-
-            /* Stop listening task */
-            lock (tcpListener) {
-                tcpListener.Stop();     // Triggers a last call to AcceptClient() if it's not already running
-            }
-            listeningStopped.WaitOne();
-            Console.WriteLine("(StopSniffing) Listening task ended");
-
-            /* Wait for all HandleSniffer tasks to end */
-            handleSnifferTasksCount.WaitZero();
-            Console.WriteLine("(StopSniffing) All HandleSniffer tasks ended");
-
-            /* Wait for ProccessRecords task to end */
-            processRecordsTask.Wait();
-            Console.WriteLine("(StopSniffing) ProcessRecords task ended");
-
-            /* Clear structures */
-            rawRecords.Clear();
-            cancelSniffing.Dispose();
-            missingTransmissionsCountdown.Dispose();
-            sniffersConfigurationSemaphore.Dispose();
-
-            sniffing = false;
         }
 
         private void AcceptClient(IAsyncResult ar) {
             TcpListener listener = (TcpListener) ar.AsyncState;
 
-            /* Avoid a call to tcpListener.Stop() during the following code */
-            lock (listener) {
+            lock (listener) {   // Avoids a call to tcpListener.Stop() during the following code
                 if (cancelSniffing.Token.IsCancellationRequested) {
                     Console.WriteLine("(AcceptClient) Ending accept");
                     listeningStopped.Set();
@@ -224,7 +239,6 @@ namespace SniffingManagement {
             }
         }
 
-        /* TODO: handle exceptions */
         private void HandleSniffer(object arg) {
             string snifferAddr = null;
             TcpClient client = (TcpClient) arg;
@@ -238,7 +252,10 @@ namespace SniffingManagement {
                     Console.WriteLine("(HandleSniffer " + snifferAddr + ") Received connection from unknown ip " + snifferAddr);
                     return;
                 }
-                
+
+                /* Set a timeout when receiving the ack */
+                client.GetStream().ReadTimeout = ERROR_TIMEOUT_SECS * 1000;
+
                 /* Unmarshal the json stream */
                 Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
                 List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
@@ -250,7 +267,7 @@ namespace SniffingManagement {
 
                 /* 
                  * Wait to proceed with configuration (awakes when all sniffers have transmitted records)
-                 * Throws OperationCanceledExceptionif sniffing is stopped while waiting
+                 * Throws OperationCanceledException if sniffing is stopped while waiting
                  */
                 sniffersConfigurationSemaphore.Wait(cancelSniffing.Token);
 
@@ -269,7 +286,9 @@ namespace SniffingManagement {
 
             /* Exception in the communication with the sniffer */
             } catch (Exception e) when (e is SocketException || e is IOException) {
-
+                /* Schedule a HandleError task */
+                ThreadPool.QueueUserWorkItem(HandleError);
+                return;
 
             } finally {
                 /* Shutdown and end connection */
@@ -280,15 +299,23 @@ namespace SniffingManagement {
 
             return;
         }
-
-        /* TODO: set timeout */
+        
         private void ProcessRecords() {
+            bool countdownSet;
+
             while (true) {
                 /* Wait until all sniffers transmit records */
                 Console.WriteLine("(ProcessRecords) Waiting for new records...");
                 try {
-                    missingTransmissionsCountdown.Wait(cancelSniffing.Token);
+                    countdownSet = missingTransmissionsCountdown.Wait((SniffingPeriod + ERROR_TIMEOUT_SECS)*1000, cancelSniffing.Token);
 
+                    if (!countdownSet) {
+                        /* The timout expired before all sniffers transmitted records, schedule a HandleError task */
+                        ThreadPool.QueueUserWorkItem(HandleError);
+                        return;
+                    }
+
+                /* Sniffing stopped while waiting for records */
                 } catch (OperationCanceledException) {
                     return;
                 }
@@ -328,8 +355,8 @@ namespace SniffingManagement {
                 NetworkStream netStream = client.GetStream();
                 writer = new StreamWriter(netStream);
 
-                /* Set a 10 seconds timeout when receiving the ack */
-                netStream.ReadTimeout = 10000;
+                /* Set a timeout when receiving the ack */
+                netStream.ReadTimeout = ERROR_TIMEOUT_SECS*1000;
 
                 /* Prepare configuration data */
                 Configuration conf = new Configuration {
@@ -392,6 +419,13 @@ namespace SniffingManagement {
                 client.Close();
                 Console.WriteLine("Connection closed");
             }
+        }
+
+        private void HandleError(object arg) {
+            StopSniffing();
+
+            /* Execute registered callback */
+            errorHandler();
         }
 
 
