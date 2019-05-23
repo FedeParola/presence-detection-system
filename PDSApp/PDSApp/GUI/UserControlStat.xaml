@@ -15,12 +15,15 @@
             <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
 
-        <lvc:CartesianChart Grid.Column="0" Width="811" HorizontalAlignment="Left" Name="frequenciesChart" Margin="10,10,0,9.8" Background="White">
+        <lvc:CartesianChart Series="{Binding SeriesCollection}" Grid.Column="0" Width="811" HorizontalAlignment="Left" Name="frequenciesChart" Margin="10,10,0,9.8" Background="White">
+            <lvc:CartesianChart.DataTooltip>
+                <lvc:DefaultTooltip Background="DarkGray"/>
+            </lvc:CartesianChart.DataTooltip>
             <lvc:CartesianChart.AxisX>
-                <lvc:Axis Title="X"></lvc:Axis>
+                <lvc:Axis Title="Time" Labels="{Binding Labels}" LabelFormatter="{Binding DateTimeFormatter}"/>
             </lvc:CartesianChart.AxisX>
             <lvc:CartesianChart.AxisY>
-                <lvc:Axis Title="Y" MinValue="0"></lvc:Axis>
+                <lvc:Axis x:Name="yAxis" MinValue="0" LabelFormatter="{Binding YFormatter}"/>
             </lvc:CartesianChart.AxisY>
         </lvc:CartesianChart>
 
@@ -28,8 +31,8 @@
             <TabItem Header="Real-time stats" FontSize="14">
                 <StackPanel>
                     <TextBlock Margin="10,20,10,0" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Insert a time value of last 'x' minutes to show the live position of the devices"/>
-                    <xctk:IntegerUpDown x:Name="dtpXMinutes" Margin="0,20,0,0" Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
-                    <Button x:Name="applyRealTime" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click"/>
+                    <xctk:IntegerUpDown x:Name="timeIntervalPicker" Margin="0,20,0,0" Minimum="1" Value="5"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
+                    <Button x:Name="applyRealTime" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Real_Time_Button_Click"/>
                 </StackPanel>
             </TabItem>
             <TabItem Header="Long term stats" FontSize="14">
