@@ -167,14 +167,15 @@ namespace PDSApp.Persistence {
         /*OPTIONAL EXTENSIONS*/
 
         /*The 'devicesCount' represents the number of 'talkative' devices considered (the top n)*/
-        public List<Tuple<String, long>> GetTalkativeDevices(long startInstant, long stopInstant, int devicesCount){
-            List<Tuple<String, long>> detections = new List<Tuple<String, long>>();
+        public Dictionary<String, Tuple<long, int>> GetTalkativeDevices(long startInstant, long stopInstant,
+            long timeStep, int devicesCount) {
+            var detections = new Dictionary<String, Tuple<long, int>>();
 
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "SELECT \"MAC\", \"Timestamp\" " +
+                    "SELECT \"MAC\", \"Timestamp\"-(\"Timestamp\"%" + timeStep + ") AS Interval, COUNT(*)" +
                     "FROM \"Record\"" +
                     "WHERE \"Timestamp\" >=" + startInstant + "AND" +
                     "      \"Timestamp\" <" + stopInstant + "AND" +
@@ -185,12 +186,13 @@ namespace PDSApp.Persistence {
                     "         \"Timestamp\" <" + stopInstant +
                     "   GROUP BY \"MAC\" " +  
                     "   ORDER BY COUNT(*) DESC" +
-                    "   LIMIT" + devicesCount + ");";
+                    "   LIMIT" + devicesCount + ")" +
+                    "   GROUP BY MAC, Interval;";
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read()){
-                        detections.Add(new Tuple<String, long>(reader.GetString(0), reader.GetInt64(1)));
+                        detections.Add(reader.GetString(0), new Tuple<long, int>(reader.GetInt64(1), reader.GetInt32(2)));
                     }
                 }
                 conn.Close();
