@@ -5,14 +5,19 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Text.RegularExpressions;
+using System.Windows.Media;
 
 namespace PDSApp.GUI {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    /// 
 
     public partial class MainWindow : Window
     {
+        const String START_SNIFFING = "Start Sniffing";
+        const String STOP_SNIFFING = "Stop Sniffing";
+
         ESPdatiGlobali globalData;
         List<ESPmomentanea> ESPcollection;
         public MainWindow()
@@ -110,6 +115,23 @@ namespace PDSApp.GUI {
                 return true;
             }
             return false;
+        }
+
+        private void StartSniffing_Click(object sender, RoutedEventArgs e)
+        {
+            //if (App.AppSniffingManager.IsSniffing())
+            if(controlSniffig.Content.Equals(START_SNIFFING))
+            {
+                //stop sniffer code here
+                controlSniffig.Content = STOP_SNIFFING;
+                statusIcon.Background = Brushes.Green;
+            }
+            else
+            {
+                //start sniffer code here
+                controlSniffig.Content = START_SNIFFING;
+                statusIcon.Background = Brushes.Red;
+            }
         }
     }
 }

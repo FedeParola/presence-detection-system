@@ -35,23 +35,21 @@
             <Grid.ColumnDefinitions>
 
 
+                <ColumnDefinition Width="983*"/>
+                <ColumnDefinition Width="199*"/>
+
+
             </Grid.ColumnDefinitions>
-            <Label Content="User Control iniziale" VerticalAlignment="Center" FontSize="36" Margin="30,272,30,271" Grid.ColumnSpan="4"/>
+            <Label Content="User Control iniziale" VerticalAlignment="Center" FontSize="36" Margin="30,272,29.6,271" Grid.ColumnSpan="2"/>
         </Grid>
         <Grid Height="60" VerticalAlignment="Top" Background="#FF5C99D6">
             <Grid.Effect>
                 <DropShadowEffect BlurRadius="1" ShadowDepth="1" Color="#FFACACAC"/>
             </Grid.Effect>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <TextBlock Text="Gestione" VerticalAlignment="Center" FontSize="16"/>
-                <materialDesign:PopupBox PlacementMode="BottomAndAlignRightEdges" StaysOpen="False" Margin="10">
-                    <StackPanel Width="150">
-                        <Button Content="Impostazioni"/>
-                        <Button Content="Aiuto"/>
-                        <Separator/>
-                        <Button x:Name="ButtonExit" Content="Esci" Click="ButtonExit_Click"/>
-                    </StackPanel>
-                </materialDesign:PopupBox>
+                <Label Content="Status" VerticalAlignment="Center" FontSize="16" Foreground="White"/>
+                <Label x:Name="statusIcon" VerticalAlignment="Center" Margin="5,3,0,0" Background="Red"/>
+                <Button x:Name="controlSniffig" Content="Start Sniffing" VerticalAlignment="Bottom" Margin="50,0,20,11" Width="200" Background="#FF31577E" BorderThickness="1" Height="38" Click="StartSniffing_Click"/>
             </StackPanel>
             <TextBlock x:Name="MainTitle"  HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22">ESP32 APPLICATION</TextBlock>
         </Grid>

@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:PDSApp.GUI"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              mc:Ignorable="d" 
              d:DesignHeight="641" d:DesignWidth="1188">
 
@@ -21,25 +22,22 @@
                 <Ellipse Fill="red" Height="100" Width="100"></Ellipse>
             </Canvas>
         </Border>
-        <TabControl Background="White" HorizontalAlignment="Left" Height="621" Margin="821,0,-339,0" VerticalAlignment="Top" Width="347" Grid.ColumnSpan="2">
+        <TabControl Grid.Column="1" Background="White" HorizontalAlignment="Left"  Margin="0.2,3,-333.6,0" VerticalAlignment="Top" Width="347" Height="628">
             <TabItem Header="Live Localization" FontSize="15">
                 <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Text="Insert interval time to consider device detection from current time : " FontSize="20" Margin="57,60,67.333,0"/>
-                    <TextBox Margin="57,30,41.333,0"/>
-                    <Button x:Name="btnStart" Content="START Live Localization" Margin="0,40,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click" />
-                    <Button x:Name="btnStop" Content="STOP Live Localization" Margin="0,40,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click" />
+                    <TextBlock Margin="10,20,10,0" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Insert interval time to consider device detection from current time: "/>
+                    <xctk:IntegerUpDown x:Name="timeIntervalPosition" AllowTextInput="False" Margin="0,20,0,0" Minimum="1" Value="5"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
+                    <Button x:Name="applyLiveLoc" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38"/>
                 </StackPanel>
             </TabItem>
             <TabItem Header="Device Animation" FontSize="15">
                 <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval" FontSize="20" Margin="57,60,67.333,0"/>
-                    <Label Margin="18,20,0,0" Content="Start time" FontSize="20"/>
-                    <TextBox Margin="149,-34,41.333,0" Height="30"/>
-                    <Label Margin="18,30,0,0" Content="End time" FontSize="20"/>
-                    <TextBox Margin="149,-50,41.333,0" Height="39"/>
-                    <Label Margin="18,30,0,0" Content="Granularity" FontSize="20"/>
-                    <TextBox Margin="149,-50,41.333,0" Height="39"/>
-                    <Button Content="Start Animation" Margin="0,50,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" />
+                    <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval"/>
+                    <Label Content="Start time: " HorizontalAlignment="center"></Label>
+                    <xctk:DateTimePicker x:Name="animStart" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                    <Label Content="Stop time: " HorizontalAlignment="center"></Label>
+                    <xctk:DateTimePicker x:Name="animStop"  AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                    <Button x:Name="btnStartAnimation" Content="Start Animation" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" />
                 </StackPanel>
                 <!--<TextBlock TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval" FontSize="20" Margin="61,35,62.333,467.333"/>-->
             </TabItem>
