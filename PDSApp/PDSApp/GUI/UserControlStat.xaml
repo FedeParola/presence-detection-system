@@ -20,7 +20,7 @@
                 <lvc:DefaultTooltip Background="DarkGray"/>
             </lvc:CartesianChart.DataTooltip>
             <lvc:CartesianChart.AxisX>
-                <lvc:Axis Title="Time" LabelFormatter="{Binding DateTimeFormatter}"/>
+                <lvc:Axis Name="xAxis"/>
             </lvc:CartesianChart.AxisX>
             <lvc:CartesianChart.AxisY>
                 <lvc:Axis x:Name="yAxis" MinValue="0"/>
@@ -30,21 +30,22 @@
         <TabControl Grid.Column="1" HorizontalAlignment="Left" Height="605" Margin="0.2,10,-336,0" VerticalAlignment="Top" Width="343">
             <TabItem Header="Real-time stats" FontSize="14">
                 <StackPanel>
-                    <TextBlock Margin="10,20,10,0" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Insert the amount of time on which different devices must be counted"/>
-                    <xctk:IntegerUpDown x:Name="timeIntervalPicker" AllowTextInput="False" Margin="0,20,0,0" Minimum="1" Value="5"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
+                    <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Real time count of the distinct devices detected in the preceding given minutes"/>
+                    <Label Content="Minutes: " HorizontalAlignment="center" Margin="135,0"/>
+                    <xctk:IntegerUpDown x:Name="timeIntervalPicker" AllowTextInput="False" Margin="140,0,141,0" Minimum="1" Value="5"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
                     <Button x:Name="applyRealTime" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Real_Time_Button_Click"/>
                 </StackPanel>
             </TabItem>
             <TabItem Header="Long term stats" FontSize="14">
                 <StackPanel>
-                    <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Insert the interval of time and number of devices to show"/>
+                    <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Display the most active devices in the given time interval"/>
                     <Label Content="Start time: " HorizontalAlignment="center"></Label>
-                    <xctk:DateTimePicker x:Name="dtpStart" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                    <xctk:DateTimePicker x:Name="dtpStart" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm" Height="35" Margin="68,0,68,0"/>
                     <Label Content="Stop time: " HorizontalAlignment="center"></Label>
-                    <xctk:DateTimePicker x:Name="dtpStop" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
+                    <xctk:DateTimePicker x:Name="dtpStop" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm" Height="35" Margin="68,0,68,0"/>
                     <Label Content="Number of devices: " HorizontalAlignment="center"></Label>
                     <xctk:IntegerUpDown Name="DevNumPickerCol" AllowTextInput="False" Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571" />
-                    <Button x:Name="applyLongTerm" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Button_Click"/>
+                    <Button x:Name="applyLongTerm" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Long_Term_Button_Click"/>
                 </StackPanel>
             </TabItem>
         </TabControl>

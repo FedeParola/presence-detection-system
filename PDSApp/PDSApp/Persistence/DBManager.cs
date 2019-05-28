@@ -166,41 +166,68 @@ namespace PDSApp.Persistence {
 
         /*OPTIONAL EXTENSIONS*/
 
+        /* Get the MACs of the n devices that sent the most packets in the given time interval */
+        public List<string> GetTalkativeDevices(long startInstant, long stopInstant, int devicesCount) {
+            var devices = new List<string>();
+
+            using (var cmd = new NpgsqlCommand()) {
+                cmd.Connection = conn;
+                cmd.CommandText =
+                    "   SELECT \"MAC\" " +
+                    "   FROM \"Record\" " +
+                    "   WHERE \"Timestamp\" >= " + startInstant + " AND " +
+                    "         \"Timestamp\" < " + stopInstant +
+                    "   GROUP BY \"MAC\" " +
+                    "   ORDER BY COUNT(*) DESC" +
+                    "   LIMIT " + devicesCount + ";";
+                conn.Open();
+                using (var reader = cmd.ExecuteReader()) {
+                    while (reader.Read()) {
+                        devices.Add(reader.GetString(0));
+                    }
+                }
+                conn.Close();
+            }
+
+            return devices;
+        }
+
         /*The 'devicesCount' represents the number of 'talkative' devices considered (the top n)*/
-        public Dictionary<String, Tuple<long, int>> GetTalkativeDevices(long startInstant, long stopInstant,
+        public Dictionary<long, List<Tuple<string, int>>> GetTalkativeDevices(long startInstant, long stopInstant,
             long timeStep, int devicesCount) {
-            var detections = new Dictionary<String, Tuple<long, int>>();
+            var detections = new Dictionary<long, List<Tuple<string, int>>>();
 
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                    "SELECT \"MAC\", \"Timestamp\"-(\"Timestamp\"%" + timeStep + ") AS Interval, COUNT(*)" +
-                    "FROM \"Record\"" +
-                    "WHERE \"Timestamp\" >=" + startInstant + "AND" +
-                    "      \"Timestamp\" <" + stopInstant + "AND" +
-                    "      \"MAC\" IN(" +
-                    "   SELECT \"MAC\"" +
-                    "   FROM \"Record\"" +
-                    "   WHERE \"Timestamp\" >=" + startInstant + "AND" +
-                    "         \"Timestamp\" <" + stopInstant +
+                    "SELECT \"MAC\", \"Timestamp\"-(\"Timestamp\"%" + timeStep + ") AS Interval, COUNT(*) " +
+                    "FROM \"Record\" " +
+                    "WHERE \"Timestamp\" >= " + startInstant + " AND " +
+                    "      \"Timestamp\" < " + stopInstant + " AND " +
+                    "      \"MAC\" IN (" +
+                    "   SELECT \"MAC\" " +
+                    "   FROM \"Record\" " +
+                    "   WHERE \"Timestamp\" >= " + startInstant + " AND " +
+                    "         \"Timestamp\" < " + stopInstant +
                     "   GROUP BY \"MAC\" " +  
                     "   ORDER BY COUNT(*) DESC" +
-                    "   LIMIT" + devicesCount + ")" +
-                    "   GROUP BY MAC, Interval;";
+                    "   LIMIT " + devicesCount + ")" +
+                    "   GROUP BY \"MAC\", Interval;";
                 conn.Open();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read()){
-                        detections.Add(reader.GetString(0), new Tuple<long, int>(reader.GetInt64(1), reader.GetInt32(2)));
+                        if (!detections.ContainsKey(reader.GetInt64(1))) {
+                            detections.Add(reader.GetInt64(1), new List<Tuple<string, int>>());
+                        }
+                        detections[reader.GetInt64(1)].Add(new Tuple<string, int>(reader.GetString(0), reader.GetInt32(2)));
                     }
                 }
                 conn.Close();
             }           
 
             return detections;
-
-            /*...e riportante IN QUALI INTERVALLI TALI DISPOSITIVI SONO STATI RILEVATI! */
         }
 
         public Dictionary<String, List<Location>> GetDevicesMovements(long startInstant, long stopInstant, long resolution){
