@@ -36,8 +36,6 @@
 
 
                 <ColumnDefinition Width="983*"/>
-                <ColumnDefinition Width="199*"/>
-
 
             </Grid.ColumnDefinitions>
             <Label Content="User Control iniziale" VerticalAlignment="Center" FontSize="36" Margin="30,272,29.6,271" Grid.ColumnSpan="2"/>

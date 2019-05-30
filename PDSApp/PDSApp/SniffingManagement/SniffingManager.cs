@@ -87,6 +87,11 @@ namespace PDSApp.SniffingManagement {
             sniffers[s.Ip] = s;
         }
 
+        public int GetSniffersCount()
+        {
+            return sniffers.Count;
+        }
+
         public bool RemoveSniffer(string snifferIp) {
             if (sniffing) {
                 throw new InvalidOperationException("Can't change the sniffers configuration while the sniffing process is running," +

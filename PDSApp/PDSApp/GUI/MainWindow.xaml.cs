@@ -17,35 +17,11 @@ namespace PDSApp.GUI {
     {
         const String START_SNIFFING = "Start Sniffing";
         const String STOP_SNIFFING = "Stop Sniffing";
-
-        ESPdatiGlobali globalData;
-        List<ESPmomentanea> ESPcollection;
         public MainWindow()
         {
-
-            //Qua leggo il file di configurazione e salvo i dati nelle classi già create. 
-            //Momentaneamente creo una classi di appoggio che contengono tutti i dati che mi servono . 
-            ESPcollection = new List<ESPmomentanea>();
-            NameValueCollection appSettings = ConfigurationManager.AppSettings;
-
-            globalData = new ESPdatiGlobali((appSettings.Count-5), 
-                Int32.Parse(ConfigurationManager.AppSettings["channel"]),
-                Int32.Parse(ConfigurationManager.AppSettings["width"]), 
-                Int32.Parse(ConfigurationManager.AppSettings["length"]),
-                Int32.Parse(ConfigurationManager.AppSettings["timer"]),
-                Int32.Parse(ConfigurationManager.AppSettings["port"]));
-
-            for (int i=5; i<appSettings.Count; i++)
-            {
-                string[] position = appSettings[i].Split(";");
-                int x = Int32.Parse(position[0]);
-                int y = Int32.Parse(position[1]);
-                ESPmomentanea esp = new ESPmomentanea(GenerateID(appSettings.GetKey(i)), appSettings.GetKey(i), "attivo", x, y);
-                ESPcollection.Add(esp);
-            }
             InitializeComponent();
             GridMain.Children.Clear();
-            UserControl usc = new UserControlLoc(globalData);
+            UserControl usc = new UserControlLoc();
             GridMain.Children.Add(usc);
             MainTitle.Text = "Live users Localization";
         }
@@ -70,12 +46,12 @@ namespace PDSApp.GUI {
             switch (((ListViewItem)((ListView)sender).SelectedItem).Name)
             {
                 case "ItemConfig":
-                    usc = new UserControlConfig(globalData, ESPcollection);                
+                    usc = new UserControlConfig();                
                     GridMain.Children.Add(usc);
                     MainTitle.Text = "ESP Module Configuration";
                     break;
                 case "ItemLoc":
-                    usc = new UserControlLoc(globalData);
+                    usc = new UserControlLoc();
                     GridMain.Children.Add(usc);
                     MainTitle.Text = "Live users Localization";
                     break;
@@ -123,12 +99,15 @@ namespace PDSApp.GUI {
             if(controlSniffig.Content.Equals(START_SNIFFING))
             {
                 //stop sniffer code here
+                App.AppDBManager.CloseConn();
+                App.AppSniffingManager.StopSniffing();  // If not sniffing returns immediately
                 controlSniffig.Content = STOP_SNIFFING;
                 statusIcon.Background = Brushes.Green;
             }
             else
             {
                 //start sniffer code here
+                //App.AppSniffingManager.StartSniffing();
                 controlSniffig.Content = START_SNIFFING;
                 statusIcon.Background = Brushes.Red;
             }

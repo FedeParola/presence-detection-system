@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PDSApp.SniffingManagement;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Reflection;
@@ -12,15 +13,11 @@ namespace PDSApp.GUI {
     /// </summary>
     public partial class UserControlConfig : UserControl
     {
-        ESPdatiGlobali globalData;
-        List<ESPmomentanea> ESPcollection;
         static Boolean statusS = false; //false = esp system not working
-        public UserControlConfig(ESPdatiGlobali globalData, List<ESPmomentanea> ESPcollection)
+        public UserControlConfig()
         {
             //IPotesi : Indirizzi IP inseriti sempre correttamente e mai duplicati
             InitializeComponent();
-            this.globalData = globalData;
-            this.ESPcollection = ESPcollection;
             this.GenerateGrid();
             this.WritePrjParameters();
 
@@ -35,15 +32,16 @@ namespace PDSApp.GUI {
                 buttonNew.IsEnabled = false;
 
             //write prjParameters
-            lblwidth.Content = "Room width : " + globalData.Width + "m";
-            lblhe.Content = "Room length : " + globalData.Length + "m";
-            lblch.Content = "ESP channel : " + globalData.Channel;
-            lbltimer.Content = "ESP timer : " + globalData.Timer + "s";
-            lblPort.Content = "ESP port : " + globalData.Port ;
+            lblwidth.Content = "Room width : " + App.AppSniffingManager.RoomWidth + "m";
+            lblhe.Content = "Room length : " + App.AppSniffingManager.RoomLength + "m";
+            lblch.Content = "ESP channel : " + App.AppSniffingManager.Channel;
+            lbltimer.Content = "ESP timer : " + App.AppSniffingManager.SniffingPeriod + "s";
+            lblPort.Content = "ESP port : " + App.AppSniffingManager.Port;
         }
 
         private void GenerateGrid()
         {
+            int rowN = 0;
             //delete old Rows
             int rows = ESPList.RowDefinitions.Count;
             for (int i = 0; i < rows; i++)
@@ -53,18 +51,17 @@ namespace PDSApp.GUI {
             ESPList.Children.Clear();
 
             //add new rows
-            for (int i = 0; i < globalData.EspNumber; i++)
+            for (int i = 0; i < App.AppSniffingManager.GetSniffersCount(); i++)
             {
                 RowDefinition rowDef = new RowDefinition();
                 rowDef.Height = new GridLength(200);
                 ESPList.RowDefinitions.Add(rowDef);
             }
 
-            Console.WriteLine("Numero esp da stampare : " + globalData.EspNumber + "\n\n");
+            Console.WriteLine("Numero esp da stampare : " + App.AppSniffingManager.GetSniffersCount() + "\n\n");
 
-            for (int i = 0; i < globalData.EspNumber; i++)
+            foreach (Sniffer s in App.AppSniffingManager.GetSniffers())
             {
-
                 Border besterno = new Border();
                 besterno.BorderBrush = Brushes.Black;
                 besterno.BorderThickness = new Thickness(0, 0, 0, 3);
@@ -82,13 +79,16 @@ namespace PDSApp.GUI {
                 StackPanel stplbl = new StackPanel();
                 stplbl.Margin = new Thickness(35, 30, 0, 0);
                 Label lblip = new Label();
-                lblip.Content = "Indirizzo IP : " + ESPcollection[i].Ipadd;
+                lblip.Content = "Indirizzo IP: " + s.Ip;
                 lblip.FontSize = 23;
                 Label lblstate = new Label();
-                lblstate.Content = "Stato ESP : attivo";
+                if (App.AppSniffingManager.IsSniffing())
+                    lblstate.Content = "Stato ESP: attivo";
+                else
+                    lblstate.Content = "Stato ESP: attesa";
                 lblstate.FontSize = 23;
                 Label lblloc = new Label();
-                lblloc.Content = "Posizione (x,y) : " + ESPcollection[i].X + ", " + ESPcollection[i].Y;
+                lblloc.Content = "Posizione (x,y) : " + s.Position.X + ", " + s.Position.Y;
                 lblloc.FontSize = 23;
                 stplbl.Children.Add(lblip);
                 stplbl.Children.Add(lblstate);
@@ -96,29 +96,17 @@ namespace PDSApp.GUI {
                 Grid.SetColumn(stplbl, 0);
 
                 StackPanel stpbtn = new StackPanel();
-                Button buttonconf = new Button();
                 Button buttonrem = new Button();
                 if (statusS)
-                    buttonconf.IsEnabled = false;
-                if (statusS)
                     buttonrem.IsEnabled = false;
-                buttonconf.Content = "Configuration";
                 buttonrem.Content = "Remove";
-                buttonconf.Background = new SolidColorBrush(Color.FromArgb(255, 49, 87, 126));
                 buttonrem.Background = new SolidColorBrush(Color.FromArgb(255, 49, 87, 126));
-                buttonconf.HorizontalAlignment = HorizontalAlignment.Left;
                 buttonrem.HorizontalAlignment = HorizontalAlignment.Left;
-                buttonconf.VerticalAlignment = VerticalAlignment.Top;
                 buttonrem.VerticalAlignment = VerticalAlignment.Top;
-                buttonconf.Width = 180;
                 buttonrem.Width = 180;
-                buttonconf.Margin = new Thickness(34, 44, -77, 0);
                 buttonrem.Margin = new Thickness(34, 44, -77, 0);
-                buttonconf.Click += OnGenenicButtonClickConf;
                 buttonrem.Click += OnGenenicButtonClickRem;
-                buttonconf.Name = ESPcollection[i].Id;
-                buttonrem.Name = ESPcollection[i].Id;
-                stpbtn.Children.Add(buttonconf);
+                buttonrem.Name = GenerateID(s.Ip);
                 stpbtn.Children.Add(buttonrem);
 
                 Border binterno = new Border();
@@ -133,14 +121,15 @@ namespace PDSApp.GUI {
 
                 besterno.Child = myRowGrid;
 
-                Grid.SetRow(besterno, i);
+                Grid.SetRow(besterno, rowN);
                 ESPList.Children.Add(besterno);
+                rowN++;
             }
         }
 
         private void Button_Click_confG(object sender, RoutedEventArgs e)
         {
-            ConfigureParameters parmDialogBox = new ConfigureParameters(globalData);
+            ConfigureParameters parmDialogBox = new ConfigureParameters();
             parmDialogBox.ShowDialog();
             this.WritePrjParameters();
         }
@@ -148,52 +137,58 @@ namespace PDSApp.GUI {
         private void Button_Click_New(object sender, RoutedEventArgs e)
         {
             var btn = sender as Button;
-            ESPconfiguration prjDialogBox = new ESPconfiguration(globalData, ESPcollection, btn.Name );
+            ESPconfiguration prjDialogBox = new ESPconfiguration(btn.Name);
             prjDialogBox.ShowDialog();
             this.GenerateGrid();
         }
 
         private void OnGenenicButtonClickConf(object sender, EventArgs e)
         {
-            int i;
             string ipadd = null;
             var btn = sender as Button;
-            for (i = 0; i < ESPcollection.Count; i++)
+            foreach (Sniffer s in App.AppSniffingManager.GetSniffers())
             {
-                if (ESPcollection[i].Id.Equals(btn.Name))
+                if (GenerateID(s.Ip).Equals(btn.Name))
                 {
-                    ipadd = ESPcollection[i].Ipadd;
+                    ipadd = s.Ip;
                     break;
                 }
             }
-            ESPconfiguration prjDialogBox = new ESPconfiguration(globalData, ESPcollection, btn.Name);
+            ESPconfiguration prjDialogBox = new ESPconfiguration(btn.Name);
             prjDialogBox.ShowDialog();
             this.GenerateGrid();
         }
 
         private void OnGenenicButtonClickRem(object sender, EventArgs e)
         {
-            int i;
             var btn = sender as Button;
-            Configuration config = ConfigurationManager.OpenExeConfiguration(Assembly.GetExecutingAssembly().Location);
-            for (i=0; i<ESPcollection.Count; i++)
+            System.Configuration.Configuration config = ConfigurationManager.OpenExeConfiguration(Assembly.GetExecutingAssembly().Location);
+            foreach (Sniffer s in App.AppSniffingManager.GetSniffers())
             {
-                if (ESPcollection[i].Id.Equals(btn.Name))
-                {             
+                if (GenerateID(s.Ip).Equals(btn.Name))
+                {
+                    App.AppSniffingManager.RemoveSniffer(s.Ip);
+                    config.AppSettings.Settings.Remove(s.Ip);
+                    config.Save(ConfigurationSaveMode.Modified);
+                    ConfigurationManager.RefreshSection("appSettings");
+                    this.GenerateGrid();
                     break;
                 }
             }
-            config.AppSettings.Settings.Remove(ESPcollection[i].Ipadd);
-            config.Save(ConfigurationSaveMode.Modified);
-            ConfigurationManager.RefreshSection("appSettings");
-            ESPcollection.RemoveAt(i);
-            globalData.EspNumber = globalData.EspNumber - 1;
-            this.GenerateGrid();
+            
         }
 
         public static void setMyStatus(Boolean v)
         {
             statusS = v;
+        }
+
+        public static string GenerateID(string ipa)
+        {
+            string id;
+            string[] value = ipa.Split(".");
+            id = "id" + value[0] + value[1] + value[2] + value[3];
+            return id;
         }
     }
 }

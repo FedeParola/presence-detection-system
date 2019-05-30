@@ -7,10 +7,8 @@ namespace PDSApp.GUI {
     public partial class ConfigureParameters : MaterialSkin.Controls.MaterialForm
     {
         MaterialSkin.MaterialSkinManager skinManager;
-        ESPdatiGlobali globalData;
-        public ConfigureParameters(ESPdatiGlobali globalData)
+        public ConfigureParameters()
         {
-            this.globalData = globalData;
             InitializeComponent();
             skinManager = MaterialSkinManager.Instance;
             skinManager.AddFormToManage(this);
@@ -31,7 +29,7 @@ namespace PDSApp.GUI {
 
             if (!string.IsNullOrWhiteSpace(textW))
             {
-                globalData.Width = Int32.Parse(textW);
+                App.AppSniffingManager.RoomWidth = Double.Parse(textW);
                 config.AppSettings.Settings["width"].Value = textW;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
@@ -39,15 +37,15 @@ namespace PDSApp.GUI {
             }
             if (!string.IsNullOrWhiteSpace(textH))
             {
-                globalData.Length = Int32.Parse(textH);
-                config.AppSettings.Settings["height"].Value = textH;
+                App.AppSniffingManager.RoomLength = Double.Parse(textH);
+                config.AppSettings.Settings["length"].Value = textH;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
                 flag = 1; 
             }
             if (!string.IsNullOrWhiteSpace(textCh))
             {
-                globalData.Channel = Int32.Parse(textCh);
+                App.AppSniffingManager.Channel = Byte.Parse(textCh);
                 config.AppSettings.Settings["channel"].Value = textCh;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
@@ -55,7 +53,7 @@ namespace PDSApp.GUI {
             }
             if (!string.IsNullOrWhiteSpace(textTim))
             {
-                globalData.Timer = Int32.Parse(textTim);
+                App.AppSniffingManager.SniffingPeriod = UInt16.Parse(textTim);
                 config.AppSettings.Settings["timer"].Value = textTim;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");
@@ -63,7 +61,7 @@ namespace PDSApp.GUI {
             }
             if (!string.IsNullOrWhiteSpace(textPor))
             {
-                globalData.Port = Int32.Parse(textPor);
+                App.AppSniffingManager.Port = UInt16.Parse(textPor);
                 config.AppSettings.Settings["port"].Value = textPor;
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("appSettings");

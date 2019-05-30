@@ -137,7 +137,6 @@
     <Compile Include="GUI\ESPconfiguration.Designer.cs">
       <DependentUpon>ESPconfiguration.cs</DependentUpon>
     </Compile>
-    <Compile Include="GUI\ESPmomentanea.cs" />
     <Compile Include="GUI\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </Compile>

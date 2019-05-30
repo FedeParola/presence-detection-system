@@ -8,10 +8,9 @@ namespace PDSApp.GUI {
     /// </summary>
     public partial class UserControlLoc : UserControl
     {
-        public UserControlLoc(ESPdatiGlobali globalData)
+        public UserControlLoc()
         {
             InitializeComponent();
-            Console.WriteLine("IP address: {0}, X: {1}\n\n", globalData.EspNumber, globalData.EspNumber);
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
