@@ -135,17 +135,17 @@ namespace PDSApp.Persistence {
         }
 
         /*'timeInterval' represents the length (in milliseconds) of the previous period of time considered for the statistics*/
-        public Dictionary<String, Point> EstimateDevicesPosition(long timeInterval){
-            Dictionary <String, Point> DevicesPositions = new Dictionary<String, Point>();
+        public List<Tuple<String, Location>> EstimateDevicesPosition(long timeInterval){
+            List<Tuple<String, Location>> DevicesPositions = new List<Tuple<String, Location>>();
             long startingTimeInstant = new DateTimeOffset(DateTime.Now).ToUnixTimeMilliseconds() - timeInterval;
 
             using (var cmd = new NpgsqlCommand())
             {
                 cmd.Connection = conn;
                 cmd.CommandText =
-                "SELECT \"MAC\", \"X\", \"Y\" FROM(" +
-                "   SELECT \"MAC\", \"X\", \"Y\", ROW_NUMBER () OVER(PARTITION BY \"MAC\"" +
-                                                                    "ORDER BY \"Timestamp\" DESC)" +
+                "SELECT \"MAC\", \"Timestamp\", \"X\", \"Y\" FROM(" +
+                "   SELECT \"MAC\", \"Timestamp\", \"X\", \"Y\", ROW_NUMBER () OVER(PARTITION BY \"MAC\"" +
+                                                                                   "ORDER BY \"Timestamp\" DESC)" +
                 "   FROM \"Record\"" +
                 "   WHERE \"Timestamp\" >= " + startingTimeInstant +
                 ") \"Devices\"" +
@@ -154,8 +154,9 @@ namespace PDSApp.Persistence {
                 using (var reader = cmd.ExecuteReader())
                 {
                     while(reader.Read()){
-                        Point p = new Point(reader.GetDouble(1), reader.GetDouble(2));
-                        DevicesPositions.Add(reader.GetString(0), p);
+                        Point p = new Point(reader.GetDouble(2), reader.GetDouble(3));
+                        Location l = new Location(p, reader.GetInt64(1));
+                        DevicesPositions.Add(new Tuple<String, Location>(reader.GetString(0), l));
                     }
                 }
                 conn.Close();
