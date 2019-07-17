@@ -34,14 +34,9 @@ namespace PDSApp.GUI {
         //DEVICE ANIMATION
         private List<ChartValues<ScatterPoint>> deviceMovements;
         private List<Location> movements;
-        private int iterator;
-        private DispatcherTimer movChartRefreshTimer = new DispatcherTimer();
         private String mac;
         private long startTime;
         private long stopTime;
-        private long duration;
-        //se lo scale factor è minore di 1 non va !
-        private double scaleFactor;
 
         public UserControlLoc(){
             InitializeComponent();
@@ -69,14 +64,6 @@ namespace PDSApp.GUI {
             //DEVICE ANIMATION
             deviceMovements = new List<ChartValues<ScatterPoint>>();
 
-            movChartRefreshTimer.Tick += MovChartRefreshTimer_Tick;
-            //Stop the timer when the Control is unloaded
-            this.Unloaded += (object sender, RoutedEventArgs e) => {
-                if (movChartRefreshTimer.IsEnabled){
-                    movChartRefreshTimer.Stop();
-                }
-            };
-
             DataContext = this;
         }
 
@@ -84,16 +71,13 @@ namespace PDSApp.GUI {
         private void Live_Localization_Button_Click(object sender, RoutedEventArgs e){
             //Stop the timer if already enabled and get the (new) time interval
             if (locChartRefreshTimer.IsEnabled){
-                devicesPositions.Clear();
                 locChartRefreshTimer.Stop();
-            }
-            if (movChartRefreshTimer.IsEnabled){
-                deviceMovements.Clear();
-                movChartRefreshTimer.Stop();
             }
             timeInterval = Convert.ToInt32(timeIntervalPicker.Text) * 60 * 1000;
 
-            //Clears the old series, executes the query against the db and shows the new series on the chart
+            deviceMovements.Clear(); //serve? potrebbe esserci la serie relativa all'altra tab ma forse fare la clear della series 
+            //collection (fatta in locChartUpdate) basta...
+            //Clear the old series, executes the query against the db and shows the new series on the chart
             LocChart_Update();
 
             // Program the timer 
@@ -102,13 +86,13 @@ namespace PDSApp.GUI {
         }
 
         private void LocChartRefreshTimer_Tick(object sender, EventArgs e){
-            //Clears the old series, executes the query against the db and shows the new series on the chart
+            //Clear the old series, execute the query against the db and show the new series on the chart
             LocChart_Update();
         }
 
         private void LocChart_Update(){
-            SeriesCollection.Clear();
             devicesPositions.Clear();
+            SeriesCollection.Clear();
 
             //For all the devices detected since (now-timeInterval) compute and return the latest position
             List<Tuple<String, Location>> positions = App.AppDBManager.EstimateDevicesPosition(timeInterval);
@@ -130,18 +114,15 @@ namespace PDSApp.GUI {
         }
 
     //DEVICE ANIMATION
-        private void Start_Animation_Button_Click(object sender, RoutedEventArgs e){
-            //Stop the timer if already enabled and get the (new) time interval
+        private void Compute_Movements_Button_Click(object sender, RoutedEventArgs e){
+            //Stop the locChartTimer if enabled
             if (locChartRefreshTimer.IsEnabled){
                 devicesPositions.Clear();
                 locChartRefreshTimer.Stop();
             }
-            if (movChartRefreshTimer.IsEnabled){
-                deviceMovements.Clear();
-                movChartRefreshTimer.Stop();
-            }
 
-            //Clears the old series 
+            //Clear the old series 
+            deviceMovements.Clear();
             SeriesCollection.Clear();
 
             //Get the (possibly new) value of the parameters
@@ -159,53 +140,38 @@ namespace PDSApp.GUI {
                 MessageBox.Show("Invalid time interval", "Invalid input");
                 return;
             }
-            duration = Convert.ToInt32(animDuration.Text) * 1000; //ms
-            scaleFactor = (stopTime - startTime) / duration; //devo dividere ogni unità di tempo per questo numero 
-                                                             //per far sì che l'animazione duri 'duration' 
 
             //Executes the query against the db and shows the new series on the chart
             //(For now the resolution is fixed (1 sec)... do we want to permit to the final user to decide it?
             //Is 1 sec too little?)
             movements = App.AppDBManager.GetDeviceMovements(mac, startTime, stopTime, 1000);
-            if(movements.Count == 0){
-                //there is no record in the db that satisfies the requirements 
-                return;
+
+            for(int i = 0; i < movements.Count; i++){
+                deviceMovements.Add(new ChartValues<ScatterPoint>{
+                    new ScatterPoint(movements[i].Position.X, movements[i].Position.Y)
+                });
             }
-            iterator = 0;
-
-            //Add the new position on the chart and set the new refresh timer (or stop it if it was the last position)
-            MovChart_Update();
+            slider.Maximum = movements.Count - 1;
         }
 
-        private void MovChartRefreshTimer_Tick(object sender, EventArgs e){
-            //Add the new position on the chart and set the new refresh timer (or stop it if it was the last position)
-            MovChart_Update();
-        }
+        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e){
+            int i = Convert.ToInt32(e.NewValue);
+            Location loc = movements[i];
+            
+            //Update the slider label
+            String timestamp = DateTimeOffset.FromUnixTimeMilliseconds(movements[i].Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss");
+            string msg = String.Format("Timestamp: " + timestamp);
+            positionTimestamp.Text = msg;
 
-        //Il timeout cambia di volta in volta, ed è pari alla differenza di secondi tra la prossima posizione da mostrare
-        // e quella appena mostrata, diviso lo scale factor
-        private void MovChart_Update(){
-            Location loc = movements[iterator];
-            deviceMovements.Add(new ChartValues<ScatterPoint>{
-                new ScatterPoint(loc.Position.X, loc.Position.Y)
-            });
-            SeriesCollection.Add(new ScatterSeries{
+            //Update the chart
+            SeriesCollection.Clear();
+            SeriesCollection.Add(new ScatterSeries
+            {
                 Title = "Timestamp: " + DateTimeOffset.FromUnixTimeMilliseconds(loc.Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), //timestamp  
-                Values = deviceMovements[iterator],  //position of the device
+                Values = deviceMovements[i],  //position of the device
                 MinPointShapeDiameter = 15,
                 MaxPointShapeDiameter = 15
             });
-
-            if (++iterator < movements.Count){
-                long timer = (long)((movements[iterator].Timestamp - movements[iterator - 1].Timestamp) / scaleFactor);
-                // Program the timer 
-                movChartRefreshTimer.Interval = new TimeSpan(timer * 10000);
-                movChartRefreshTimer.Start();
-            }
-            else if (movChartRefreshTimer.IsEnabled){
-                // We plotted all the positions: stop the refresh timer
-                movChartRefreshTimer.Stop();
-            }
         }
     }
 }
