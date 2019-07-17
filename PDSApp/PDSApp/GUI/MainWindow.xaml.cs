@@ -153,6 +153,5 @@ namespace PDSApp.GUI {
                 loadingProgress.Value = 0;
             }
         }
-        
     }
 }
