@@ -7,6 +7,6 @@
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid>
-        <Label Content="User Control per i Movimenti" VerticalAlignment="Center" FontSize="36" Margin="30"/>
+        <Label Content="Hidden Devices Control" VerticalAlignment="Center" FontSize="36" Margin="30"/>
     </Grid>
 </UserControl>

@@ -50,6 +50,7 @@
                 <Button x:Name="controlSniffig" Content="Start Sniffing" VerticalAlignment="Bottom" Margin="50,0,20,11" Width="200" Background="#FF31577E" BorderThickness="1" Height="38" Click="StartSniffing_Click"/>
             </StackPanel>
             <TextBlock x:Name="MainTitle"  HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22">ESP32 APPLICATION</TextBlock>
+            <ProgressBar x:Name="loadingProgress" HorizontalAlignment="Left" Height="40" Margin="95,10,0,0" VerticalAlignment="Top" Width="375" Foreground="Green"/>
         </Grid>
         <Grid x:Name="GridMenu" Width="70" HorizontalAlignment="Left" Background="#FF31577E">
             <Grid.Effect>
@@ -75,28 +76,29 @@
                     <Image Height="80" VerticalAlignment="Bottom"/>
                 </Grid>
                 <ListView x:Name="ListViewMenu" Foreground="#FF5C99D6" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="ListViewMenu_SelectionChanged">
-                    <ListViewItem x:Name="ItemLoc" Height="60">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Location" Height="25" Width="25" Margin="10"/>
-                            <TextBlock Text="Localizzazione" VerticalAlignment="Center" Margin="20 10"/>
-                        </StackPanel>
-                    </ListViewItem>
+                    
                     <ListViewItem x:Name="ItemConfig" Height="60">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Settings" Height="25" Width="25" Margin="10"/>
-                            <TextBlock Text="Configurazione" VerticalAlignment="Center" Margin="20 10"/>
+                            <TextBlock Text="Configuration" VerticalAlignment="Center" Margin="20 10"/>
+                        </StackPanel>
+                    </ListViewItem>
+                    <ListViewItem x:Name="ItemLoc" Height="60">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Location" Height="25" Width="25" Margin="10"/>
+                            <TextBlock Text="Localization" VerticalAlignment="Center" Margin="20 10"/>
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem x:Name="ItemStat" Height="60">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="Finance" Height="25" Width="25" Margin="10"/>
-                            <TextBlock Text="Statistiche" VerticalAlignment="Center"  Margin="20 10"/>
+                            <TextBlock Text="Statistics" VerticalAlignment="Center"  Margin="20 10"/>
                         </StackPanel>
                     </ListViewItem>
-                    <ListViewItem x:Name="ItemMov" Height="60">
+                    <ListViewItem x:Name="ItemHiddenDev" Height="60">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="map" Height="25" Width="25" Margin="10"/>
-                            <TextBlock Text="Movimenti" VerticalAlignment="Center"  Margin="20 10"/>
+                            <TextBlock Text="Hidden Devices" VerticalAlignment="Center"  Margin="20 10"/>
                         </StackPanel>
                     </ListViewItem>
                 </ListView>

@@ -8,6 +8,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using PDSApp.GUI;
+//using System.Windows;
 
 namespace PDSApp.SniffingManagement {
     class SniffingManager {
@@ -16,6 +18,10 @@ namespace PDSApp.SniffingManagement {
         private const byte RESET_BYTE = (byte) 'R';
         private const byte TERMINATION_BYTE = 0;
         private const int ERROR_TIMEOUT_SECS = 10;
+
+
+        //reference to MainWindow
+        //MainWindow mw = (MainWindow)Application.Current.MainWindow;
 
         public delegate void ErrorHandler();
 
@@ -135,6 +141,8 @@ namespace PDSApp.SniffingManagement {
         }
 
         public void StartSniffing() {
+            //int i=0;
+
             if(sniffing) {
                 throw new InvalidOperationException("Already sniffing, call StopSniffing() first");
             }
@@ -164,6 +172,21 @@ namespace PDSApp.SniffingManagement {
                     ConfigSniffer(s.Ip);
                     s.Status = Sniffer.SnifferStatus.Running;
 
+                    /*
+                    //unpdate che value of the progress bar
+                    i++;
+                    if (i == (sniffers.Count))
+                    {
+                        double prevValue = mw.loadingProgress.Value;
+                        mw.loadingProgress.Value += (100 - prevValue);
+                    }
+                    else
+                    {
+                        mw.loadingProgress.Value += (100 / (sniffers.Count));
+                    }
+                    */
+                    
+
                 /* Error configuring the sniffers */
                 } catch (Exception e) when (e is SocketException || e is IOException) {
                     /* Stop sniffing and notify the caller */
@@ -179,7 +202,10 @@ namespace PDSApp.SniffingManagement {
 
         public void StopSniffing() {
             lock (stopSniffingLock) {
+                //int i = 0;
+
                 if (!sniffing) {
+                    //mw.loadingProgress.Value = 100;
                     return;
                 }
 
@@ -191,6 +217,20 @@ namespace PDSApp.SniffingManagement {
                         if (s.Status == Sniffer.SnifferStatus.Running || s.Status == Sniffer.SnifferStatus.Error) {
                             ResetSniffer(s.Ip);
                             s.Status = Sniffer.SnifferStatus.Stopped;
+
+                            /*
+                            //unpdate che value of the progress bar
+                            i++;
+                            if (i == (sniffers.Count))
+                            {
+                                double prevValue = mw.loadingProgress.Value;
+                                mw.loadingProgress.Value += (100 - prevValue);
+                            }
+                            else
+                            {
+                                mw.loadingProgress.Value += (100 / (sniffers.Count));
+                            }
+                            */
                         }
 
                         /* Error in the communication with the sniffer */

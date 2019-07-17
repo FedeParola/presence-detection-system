@@ -17,13 +17,22 @@ namespace PDSApp.GUI {
     {
         const String START_SNIFFING = "Start Sniffing";
         const String STOP_SNIFFING = "Stop Sniffing";
+        const String CONFIG_TAB_TITLE = "ESP Module Configuration";
+        const String LOCALIZATION_TAB_TITLE = "Live users Localization";
+        const String STATS_TAB_TITLE = "Statistic";
+        const String HIDDEN_DEV_TAB_TITLE = "Hidden Devices";
+
+        private UserControl usc = null;
         public MainWindow()
         {
             InitializeComponent();
             GridMain.Children.Clear();
-            UserControl usc = new UserControlLoc();
+            usc = new UserControlConfig();
             GridMain.Children.Add(usc);
-            MainTitle.Text = "Live users Localization";
+            MainTitle.Text = CONFIG_TAB_TITLE;
+            ItemLoc.IsEnabled = false;
+            ItemStat.IsEnabled = false;
+            ItemHiddenDev.IsEnabled = false;
         }
 
         private void ButtonOpenMenu_Click(object sender, RoutedEventArgs e)
@@ -46,24 +55,24 @@ namespace PDSApp.GUI {
             switch (((ListViewItem)((ListView)sender).SelectedItem).Name)
             {
                 case "ItemConfig":
-                    usc = new UserControlConfig();                
+                    usc = new UserControlConfig();
                     GridMain.Children.Add(usc);
-                    MainTitle.Text = "ESP Module Configuration";
+                    MainTitle.Text = CONFIG_TAB_TITLE;
                     break;
                 case "ItemLoc":
                     usc = new UserControlLoc();
                     GridMain.Children.Add(usc);
-                    MainTitle.Text = "Live users Localization";
+                    MainTitle.Text = LOCALIZATION_TAB_TITLE;
                     break;
                 case "ItemStat":
                     usc = new UserControlStat();
                     GridMain.Children.Add(usc);
-                    MainTitle.Text = "Statistic";
+                    MainTitle.Text = STATS_TAB_TITLE;
                     break;
-                case "ItemMov":
+                case "ItemHiddenDev":
                     usc = new UserControlMov();
                     GridMain.Children.Add(usc);
-                    MainTitle.Text = "Localization History";
+                    MainTitle.Text = HIDDEN_DEV_TAB_TITLE;
                     break;
                 default:
                     break;
@@ -95,22 +104,55 @@ namespace PDSApp.GUI {
 
         private void StartSniffing_Click(object sender, RoutedEventArgs e)
         {
-            //if (App.AppSniffingManager.IsSniffing())
-            if(controlSniffig.Content.Equals(START_SNIFFING))
+            //if (!  App.AppSniffingManager.IsSniffing()) at the position of the following if statement
+            if (controlSniffig.Content.Equals(START_SNIFFING))
             {
-                //stop sniffer code here
-                App.AppDBManager.CloseConn();
-                App.AppSniffingManager.StopSniffing();  // If not sniffing returns immediately
-                controlSniffig.Content = STOP_SNIFFING;
+                //start sniffer code here
+                statusIcon.Background = Brushes.Orange;
+                loadingProgress.Value = 0;
+                //App.AppSniffingManager.StartSniffing();
                 statusIcon.Background = Brushes.Green;
+                controlSniffig.Content = STOP_SNIFFING;
+                //enable tabs
+                ItemLoc.IsEnabled = true;
+                ItemStat.IsEnabled = true;
+                ItemHiddenDev.IsEnabled = true;
+                ItemConfig.IsEnabled = false;
+                //disable the currect tab
+                usc.IsEnabled = false;
+                //swith to another tab
+                GridMain.Children.Clear();
+                usc = new UserControlLoc();
+                GridMain.Children.Add(usc);
+                MainTitle.Text = LOCALIZATION_TAB_TITLE;
+                //reset progress bar
+                loadingProgress.Value = 0;
             }
             else
             {
-                //start sniffer code here
-                //App.AppSniffingManager.StartSniffing();
-                controlSniffig.Content = START_SNIFFING;
+                //stop sniffer code here
+                App.AppDBManager.CloseConn();
+                statusIcon.Background = Brushes.Orange;
+                loadingProgress.Value = 0;
+                App.AppSniffingManager.StopSniffing();  // If not sniffing returns immediately
                 statusIcon.Background = Brushes.Red;
+                controlSniffig.Content = START_SNIFFING;
+                //enable tabs
+                ItemLoc.IsEnabled = false;
+                ItemStat.IsEnabled = false;
+                ItemHiddenDev.IsEnabled = false;
+                ItemConfig.IsEnabled = true;
+                //disable the current tab
+                usc.IsEnabled = false;
+                //switch to config control
+                GridMain.Children.Clear();
+                usc = new UserControlConfig();
+                GridMain.Children.Add(usc);
+                MainTitle.Text = CONFIG_TAB_TITLE;
+                //reset the progress bar
+                loadingProgress.Value = 0;
             }
         }
+        
     }
 }

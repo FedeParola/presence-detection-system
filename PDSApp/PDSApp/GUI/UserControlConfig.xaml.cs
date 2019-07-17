@@ -79,16 +79,16 @@ namespace PDSApp.GUI {
                 StackPanel stplbl = new StackPanel();
                 stplbl.Margin = new Thickness(35, 30, 0, 0);
                 Label lblip = new Label();
-                lblip.Content = "Indirizzo IP: " + s.Ip;
+                lblip.Content = "IP Address: " + s.Ip;
                 lblip.FontSize = 23;
                 Label lblstate = new Label();
                 if (App.AppSniffingManager.IsSniffing())
-                    lblstate.Content = "Stato ESP: attivo";
+                    lblstate.Content = "ESP Status: active";
                 else
-                    lblstate.Content = "Stato ESP: attesa";
+                    lblstate.Content = "ESP Status: ready";
                 lblstate.FontSize = 23;
                 Label lblloc = new Label();
-                lblloc.Content = "Posizione (x,y) : " + s.Position.X + ", " + s.Position.Y;
+                lblloc.Content = "Position (x,y) : " + s.Position.X + ", " + s.Position.Y;
                 lblloc.FontSize = 23;
                 stplbl.Children.Add(lblip);
                 stplbl.Children.Add(lblstate);
