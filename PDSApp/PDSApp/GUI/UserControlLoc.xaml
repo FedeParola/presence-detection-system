@@ -33,19 +33,22 @@
                 <StackPanel>
                     <TextBlock Margin="10,20,10,0" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Insert the number of minutes from current time to consider device detection: "/>
                     <xctk:IntegerUpDown x:Name="timeIntervalPicker" AllowTextInput="False" Margin="0,20,0,0" Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
-                    <Button x:Name="applyLiveLoc" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Real_Time_Button_Click"/>
+                    <Button x:Name="applyLiveLoc" Content="Apply" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" Click="Live_Localization_Button_Click"/>
                 </StackPanel>
             </TabItem>
-            <TabItem Header="Device Animation" FontSize="15">
+            <TabItem Header="Device Animation" FontSize="14">
                 <StackPanel>
                     <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval"/>
-                    <Label Content="Start time: " HorizontalAlignment="center"></Label>
-                    <xctk:DateTimePicker x:Name="animStart" AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
-                    <Label Content="Stop time: " HorizontalAlignment="center"></Label>
-                    <xctk:DateTimePicker x:Name="animStop"  AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="155"/>
-                    <Button x:Name="btnStartAnimation" Content="Start Animation" Margin="0,20,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" />
+                    <Label Content="MAC address of the device: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
+                    <TextBox  x:Name="macAddr" Height="35" Width="150" />
+                    <Label Content="Start time: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
+                    <xctk:DateTimePicker x:Name="animStart" AllowTextInput="False" Format ="Custom"  FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="180"/>
+                    <Label Content="Stop time: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
+                    <xctk:DateTimePicker x:Name="animStop"  AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="180"/>
+                    <Label Content="Duration of animation (in seconds): " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
+                    <xctk:IntegerUpDown x:Name="animDuration" AllowTextInput="False" Minimum="1" Value="1"  Height="35" Width="56" RenderTransformOrigin="-0.391,0.571"  HorizontalAlignment="Center"/>
+                    <Button x:Name="btnStartAnimation" Content="Start Animation" Margin="0,40,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" Click="Start_Animation_Button_Click"/>
                 </StackPanel>
-                <!--<TextBlock TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval" FontSize="20" Margin="61,35,62.333,467.333"/>-->
             </TabItem>
         </TabControl>
     </Grid>

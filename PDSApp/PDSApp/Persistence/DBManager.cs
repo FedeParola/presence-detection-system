@@ -136,7 +136,7 @@ namespace PDSApp.Persistence {
 
         /*'timeInterval' represents the length (in milliseconds) of the previous period of time considered for the statistics*/
         public List<Tuple<String, Location>> EstimateDevicesPosition(long timeInterval){
-            List<Tuple<String, Location>> DevicesPositions = new List<Tuple<String, Location>>();
+            List<Tuple<String, Location>> devicesPositions = new List<Tuple<String, Location>>();
             long startingTimeInstant = new DateTimeOffset(DateTime.Now).ToUnixTimeMilliseconds() - timeInterval;
 
             using (var cmd = new NpgsqlCommand())
@@ -156,13 +156,13 @@ namespace PDSApp.Persistence {
                     while(reader.Read()){
                         Point p = new Point(reader.GetDouble(2), reader.GetDouble(3));
                         Location l = new Location(p, reader.GetInt64(1));
-                        DevicesPositions.Add(new Tuple<String, Location>(reader.GetString(0), l));
+                        devicesPositions.Add(new Tuple<String, Location>(reader.GetString(0), l));
                     }
                 }
                 conn.Close();
             }
 
-            return DevicesPositions;
+            return devicesPositions;
         }
 
         /*OPTIONAL EXTENSIONS*/
@@ -231,7 +231,42 @@ namespace PDSApp.Persistence {
             return detections;
         }
 
-        public Dictionary<String, List<Location>> GetDevicesMovements(long startInstant, long stopInstant, long resolution){
+        public List<Location> GetDeviceMovements(String macAddr, long startInstant, long stopInstant, long resolution)
+        {
+            List<Location> deviceMovements = new List<Location>();
+
+            using (var cmd = new NpgsqlCommand())
+            {
+                cmd.Connection = conn;
+                cmd.CommandText =
+                "SELECT \"X\", \"Y\", \"Timestamp\" " +
+                "FROM \"Record\" " +
+                "WHERE \"Id\" IN" +
+                "(" +
+                "   SELECT MAX(\"Id\")" +
+                "   FROM \"Record\"" +
+                "   WHERE \"Timestamp\" >= " + startInstant + " AND" +
+                "         \"Timestamp\" <= " + stopInstant + " AND" +
+                "         \"MAC\" = '" + macAddr + "'" +  
+                "   GROUP BY (\"Timestamp\" - \"Timestamp\" % " + resolution + ")" +
+                ");";
+                conn.Open();
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        Point p = new Point(reader.GetDouble(0), reader.GetDouble(1));
+                        Location l = new Location(p, reader.GetInt64(2));
+                        deviceMovements.Add(l);
+                    }
+                }
+                conn.Close();
+            }
+
+            return deviceMovements;
+        }
+
+        /*public Dictionary<String, List<Location>> GetDevicesMovements(long startInstant, long stopInstant, long resolution){
             Dictionary <String, List<Location>> positionsSequence = new Dictionary<String, List<Location>>();
 
             using (var cmd = new NpgsqlCommand())
@@ -256,8 +291,8 @@ namespace PDSApp.Persistence {
                             positionsSequence.Add(reader.GetString(0), new List<Location>());
                         }
 
-                        Point p = new Point(reader.GetDouble(2), reader.GetDouble(3));
-                        Location l = new Location(p, reader.GetInt64(1));
+                        Point p = new Point(reader.GetDouble(1), reader.GetDouble(2));
+                        Location l = new Location(p, reader.GetInt64(3));
                         positionsSequence[reader.GetString(0)].Add(l);
                     }
                 }
@@ -265,6 +300,6 @@ namespace PDSApp.Persistence {
             }
 
             return positionsSequence;
-        }
+        }*/
     }
 }
