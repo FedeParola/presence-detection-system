@@ -145,7 +145,11 @@ namespace PDSApp.GUI {
             //(For now the resolution is fixed (1 sec)... do we want to permit to the final user to decide it?
             //Is 1 sec too little?)
             movements = App.AppDBManager.GetDeviceMovements(mac, startTime, stopTime, 1000);
-
+            if (movements.Count == 0){
+                //no packets were found in the given time interval 
+                MessageBox.Show("The device was not detected in the given time interval!", "Warning");
+                return; 
+            }
             for(int i = 0; i < movements.Count; i++){
                 deviceMovements.Add(new ChartValues<ScatterPoint>{
                     new ScatterPoint(movements[i].Position.X, movements[i].Position.Y)
@@ -165,8 +169,7 @@ namespace PDSApp.GUI {
 
             //Update the chart
             SeriesCollection.Clear();
-            SeriesCollection.Add(new ScatterSeries
-            {
+            SeriesCollection.Add(new ScatterSeries{
                 Title = "Timestamp: " + DateTimeOffset.FromUnixTimeMilliseconds(loc.Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), //timestamp  
                 Values = deviceMovements[i],  //position of the device
                 MinPointShapeDiameter = 15,
