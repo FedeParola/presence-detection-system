@@ -23,7 +23,7 @@ namespace PDSApp.SniffingManagement {
         private RecordsProcessor processor;
         private TcpListener tcpListener;
         private JsonSerializer serializer = new JsonSerializer();
-        private ErrorHandler errorHandler;
+        public ErrorHandler errorHandler;
 
         /* Public configuration properties */
         public UInt16 Port { get; set; }
@@ -169,6 +169,7 @@ namespace PDSApp.SniffingManagement {
                     /* Stop sniffing and notify the caller */
                     Console.WriteLine("Error configuring sniffer " + s.Ip + ": " + e.Message);
                     s.Status = Sniffer.SnifferStatus.Error;
+                    sniffing = true;
                     StopSniffing();
                     throw e; // Maybe wrap it in a custom Exception
                 }
@@ -267,6 +268,9 @@ namespace PDSApp.SniffingManagement {
                 Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
                 List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
                 Console.WriteLine("(HandleSniffer " + snifferAddr + ") Records received");
+                foreach (Record r in records) {
+                    Console.WriteLine(snifferAddr + ":   " + r.Hash + "     " + r.MacAddr + "    " + r.Rssi);
+                }
                 rawRecords[snifferAddr] = records;
 
                 /* Signal that records for the current sniffer are ready */
@@ -341,7 +345,8 @@ namespace PDSApp.SniffingManagement {
                     int result = db.InsertRecords(packets);
                 }
 
-                Console.WriteLine("(ProcessRecords) Records processed");
+
+                Console.WriteLine("(ProcessRecords) Records processed, added "+packets.Count+" packets to the DB");
             }
         }
 
@@ -429,6 +434,7 @@ namespace PDSApp.SniffingManagement {
         }
 
         private void HandleError(object arg) {
+            Console.WriteLine("(HandleError) Error in the communication with a sniffer");
             StopSniffing();
 
             /* Execute registered callback */

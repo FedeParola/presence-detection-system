@@ -22,13 +22,12 @@ namespace PDSApp {
                                                      Byte.Parse(ConfigurationManager.AppSettings["channel"]),
                                                      Double.Parse(ConfigurationManager.AppSettings["length"]),
                                                      Double.Parse(ConfigurationManager.AppSettings["width"]),
-                                                     AppDBManager,
-                                                     ((GUI.MainWindow) MainWindow).SniffingErrorCallback);
+                                                     AppDBManager, null);
             for (int i = 5; i < appSettings.Count; i++)
             {
                 string[] position = appSettings[i].Split(";");
-                int x = Int32.Parse(position[0]);
-                int y = Int32.Parse(position[1]);
+                double x = Double.Parse(position[0]);
+                double y = Double.Parse(position[1]);
                 AppSniffingManager.AddSniffer(new Sniffer(appSettings.GetKey(i), new PDSApp.SniffingManagement.Trilateration.Point(x, y)));
             }
             

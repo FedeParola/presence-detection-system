@@ -36,6 +36,7 @@ namespace PDSApp.GUI {
             ItemStat.IsEnabled = false;
             ItemHidden.IsEnabled = false;
             uscLog = new UserControlLog();
+            App.AppSniffingManager.errorHandler = this.SniffingErrorCallback;
         }
 
         private void ButtonOpenMenu_Click(object sender, RoutedEventArgs e)
@@ -180,8 +181,10 @@ namespace PDSApp.GUI {
         }
 
         public void SniffingErrorCallback() {
-            SniffingStoppedCallback();
-            MessageBox.Show("There was an error in the sniffing process", "Sniffing Error");
+            Dispatcher.Invoke(() => {
+                SniffingStoppedCallback();
+                MessageBox.Show("There was an error in the sniffing process", "Sniffing Error");
+            });
         }
 
         private void SniffingStartErrorCallback() {

@@ -58,8 +58,6 @@ namespace PDSApp.GUI {
                 ESPList.RowDefinitions.Add(rowDef);
             }
 
-            Console.WriteLine("Numero esp da stampare : " + App.AppSniffingManager.GetSniffersCount() + "\n\n");
-
             foreach (Sniffer s in App.AppSniffingManager.GetSniffers())
             {
                 Border besterno = new Border();
@@ -88,7 +86,7 @@ namespace PDSApp.GUI {
                     lblstate.Content = "ESP Status: ready";
                 lblstate.FontSize = 23;
                 Label lblloc = new Label();
-                lblloc.Content = "Position (x,y) : " + s.Position.X + ", " + s.Position.Y;
+                lblloc.Content = "Position (x; y) : " + s.Position.X + "; " + s.Position.Y;
                 lblloc.FontSize = 23;
                 stplbl.Children.Add(lblip);
                 stplbl.Children.Add(lblstate);

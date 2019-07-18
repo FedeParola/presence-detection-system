@@ -55,7 +55,7 @@ namespace PDSApp.GUI {
                         config.Save(ConfigurationSaveMode.Modified);
                         ConfigurationManager.RefreshSection("appSettings");
 
-                        App.AppSniffingManager.AddSniffer(new Sniffer(textip, new PDSApp.SniffingManagement.Trilateration.Point(Int32.Parse(textX), Int32.Parse(textY))));
+                        App.AppSniffingManager.AddSniffer(new Sniffer(textip, new PDSApp.SniffingManagement.Trilateration.Point(Double.Parse(textX), Double.Parse(textY))));
 
                         this.Close();
                     }

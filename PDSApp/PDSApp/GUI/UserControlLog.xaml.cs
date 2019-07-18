@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,7 +12,7 @@ namespace PDSApp.GUI {
 
         public UserControlLog() {
             InitializeComponent();
-            //Console.SetOut(new LogWriter(txtLog));
+            Console.SetOut(new LogWriter(txtLog));
         }
 
         private void Clear_Click(object sender, RoutedEventArgs e) {
@@ -26,17 +27,21 @@ namespace PDSApp.GUI {
             }
 
             public override void Write(char value) {
-                textbox.AppendText(value.ToString());
+                Application.Current.Dispatcher.Invoke(() => textbox.AppendText(value.ToString()));
             }
 
             public override void Write(string value) {
-                textbox.AppendText(value);
-                textbox.ScrollToEnd();
+                Application.Current.Dispatcher.Invoke(() => {
+                    textbox.AppendText(value);
+                    textbox.ScrollToEnd();
+                });
             }
 
             public override void WriteLine(string value) {
-                textbox.Text += value+"\n";
-                textbox.ScrollToEnd();
+                Application.Current.Dispatcher.Invoke(() => {
+                    textbox.Text += value+"\n";
+                    textbox.ScrollToEnd();
+                });
             }
 
             public override Encoding Encoding {
