@@ -41,7 +41,8 @@ namespace PDSApp.SniffingManagement {
             Boolean startIndexUpdated;
 
             List<Record> firstRecordsList = rawRecords[0].Value;
-            RemoveDuplicates(firstRecordsList);
+            //probably useless because the hash is always different
+            //RemoveDuplicates(firstRecordsList);
 
             /*Go through the records of the first esp32*/
             foreach (Record record in firstRecordsList){
