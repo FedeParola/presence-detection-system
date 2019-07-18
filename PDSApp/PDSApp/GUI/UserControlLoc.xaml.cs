@@ -104,7 +104,7 @@ namespace PDSApp.GUI {
                 });
 
                 SeriesCollection.Add(new ScatterSeries{
-                    Title = "IP address: " + sniffer.Ip,
+                    Title = "IP address: " + sniffer.Ip + " Position: ",
                     Values = espPositions[j],  
                     PointGeometry = DefaultGeometries.Diamond,
                     MinPointShapeDiameter = 20,
