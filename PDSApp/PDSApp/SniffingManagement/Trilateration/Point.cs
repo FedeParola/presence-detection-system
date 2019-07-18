@@ -13,6 +13,14 @@ namespace PDSApp.SniffingManagement.Trilateration {
             Y = y;
         }
 
+        public double Distance(Point p) {
+            if (p == null) {
+                throw new ArgumentNullException();
+            }
+
+            return Math.Sqrt((this.X - p.X) * (this.X - p.X) + (this.Y - p.Y) * (this.Y - p.Y));
+        }
+
         public override String ToString() {
             return "(" + X + ", " + Y + ")";
         }

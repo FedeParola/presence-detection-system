@@ -18,6 +18,11 @@ namespace PDSApp.SniffingManagement {
             set; get;
         }
 
+        [JsonProperty(PropertyName = "sequence_ctrl")]
+        public int SequenceCtrl {
+            set; get;
+        }
+
         [JsonProperty(PropertyName = "RSSI")]
         public int Rssi {
             set; get;

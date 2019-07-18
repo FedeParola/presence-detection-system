@@ -41,8 +41,7 @@ namespace PDSApp.SniffingManagement {
             Boolean startIndexUpdated;
 
             List<Record> firstRecordsList = rawRecords[0].Value;
-            //probably useless because the hash is always different
-            //RemoveDuplicates(firstRecordsList);
+            RemoveDuplicates(firstRecordsList);
 
             /*Go through the records of the first esp32*/
             foreach (Record record in firstRecordsList){
@@ -97,6 +96,7 @@ namespace PDSApp.SniffingManagement {
                             MacAddr = record.MacAddr,
                             Ssid = record.Ssid,
                             Timestamp = record.Timestamp,
+                            SequenceCtrl = record.SequenceCtrl,
                             Position = position
                         };
                         packets.Add(p);

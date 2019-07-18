@@ -32,10 +32,10 @@ namespace PDSApp.GUI {
                 buttonNew.IsEnabled = false;
 
             //write prjParameters
-            lblwidth.Content = "Room width : " + App.AppSniffingManager.RoomWidth + "m";
-            lblhe.Content = "Room length : " + App.AppSniffingManager.RoomLength + "m";
-            lblch.Content = "ESP channel : " + App.AppSniffingManager.Channel;
-            lbltimer.Content = "ESP timer : " + App.AppSniffingManager.SniffingPeriod + "s";
+            lblhe.Content = "Room length (x) : " + App.AppSniffingManager.RoomLength + "m";
+            lblwidth.Content = "Room width (y) : " + App.AppSniffingManager.RoomWidth + "m";
+            lblch.Content = "WiFi channel : " + App.AppSniffingManager.Channel;
+            lbltimer.Content = "Sniffing period : " + App.AppSniffingManager.SniffingPeriod + "s";
             lblPort.Content = "ESP port : " + App.AppSniffingManager.Port;
         }
 

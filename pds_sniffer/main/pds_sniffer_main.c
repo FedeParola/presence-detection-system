@@ -33,8 +33,8 @@
 //timer
 #define TIMER_TRIGGERED   0						//used in variable "event" -> 0 means that the timer has been triggered
 //parameters for the WIFI connection
-#define WIFI_SSID  	"NotSoFastBau"
-#define WIFI_PASS   "Vivailpolitecnico14!"
+#define WIFI_SSID  	"One-di-Fede"
+#define WIFI_PASS   "OneDiFede1995"
 //masks for packet sniffing
 #define TYPESUBTYPE_MASK 0b0000000011111100
 #define TYPE_PROBE 		 0b0000000001000000
@@ -64,6 +64,7 @@ typedef struct {
 typedef struct {
 	char SSID[MAX_SSID_LENGTH];
 	char MACADDR[18];
+	int sequence_ctrl;
 	int RSSI;
 	char hash[33];
 	uint64_t timestamp;
@@ -725,6 +726,7 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 		//save data in the record
 		macaddr_to_str(hdr->addr2, record.MACADDR);
 		memcpy(record.SSID, ssid_str, ssid_length+1);
+		record.sequence_ctrl = hdr->sequence_ctrl;
 		record.RSSI = ppkt->rx_ctrl.rssi;
 		//make hash md5 of the packet content
 		md5((unsigned char *) ipkt, sizeof(*ipkt), hashtmp);
@@ -735,7 +737,7 @@ void packet_handler(void *buf, wifi_promiscuous_pkt_type_t type){
 		add_json_record(record);
 
 		//dispay of the monitor the sniffer packet
-		ets_printf("TIMESTAMP s:%u ms:%u CHAN=%02d, SEQ=%4x, RSSI=%d, ADDR=%s, SSID='%s'\n",
+		ets_printf("TIMESTAMP s:%u ms:%u CHAN=%02d, SEQ=%d, RSSI=%d, ADDR=%s, SSID='%s'\n",
 				now.tv_sec,
 				now.tv_usec/1000,
 				ppkt->rx_ctrl.channel,
@@ -789,6 +791,7 @@ void add_json_record(record_t r){
 
     cJSON_AddItemToObject(root, "SSID", cJSON_CreateString(r.SSID));
     cJSON_AddItemToObject(root, "MACADDR", cJSON_CreateString(r.MACADDR));
+    cJSON_AddNumberToObject(root, "sequence_ctrl", r.sequence_ctrl);
     cJSON_AddNumberToObject(root, "RSSI", r.RSSI);
     cJSON_AddItemToObject(root, "hash", cJSON_CreateString(r.hash));
     cJSON_AddNumberToObject(root, "timestamp", r.timestamp);

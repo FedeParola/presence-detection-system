@@ -23,6 +23,10 @@ namespace PDSApp.Persistence {
             set; get;
         }
 
+        public int SequenceCtrl {
+            set; get;
+        }
+
         public Point Position
         {
             set; get;

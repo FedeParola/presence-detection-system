@@ -21,6 +21,7 @@ namespace PDSApp.GUI {
         const String LOCALIZATION_TAB_TITLE = "Live users Localization";
         const String STATS_TAB_TITLE = "Statistic";
         const String HIDDEN_DEV_TAB_TITLE = "Hidden Devices";
+        private UserControlLog uscLog;
 
         private UserControl usc = null;
         public MainWindow()
@@ -32,7 +33,8 @@ namespace PDSApp.GUI {
             MainTitle.Text = CONFIG_TAB_TITLE;
             ItemLoc.IsEnabled = false;
             ItemStat.IsEnabled = false;
-            ItemHiddenDev.IsEnabled = false;
+            ItemHidden.IsEnabled = false;
+            uscLog = new UserControlLog();
         }
 
         private void ButtonOpenMenu_Click(object sender, RoutedEventArgs e)
@@ -69,10 +71,15 @@ namespace PDSApp.GUI {
                     GridMain.Children.Add(usc);
                     MainTitle.Text = STATS_TAB_TITLE;
                     break;
-                case "ItemHiddenDev":
-                    usc = new UserControlMov();
+                case "ItemHidden":
+                    usc = new UserControlHidden();
                     GridMain.Children.Add(usc);
-                    MainTitle.Text = HIDDEN_DEV_TAB_TITLE;
+                    MainTitle.Text = "Hidden Devices Detection";
+                    break;
+                case "ItemLog":
+                    usc = uscLog;
+                    GridMain.Children.Add(usc);
+                    MainTitle.Text = "Log";
                     break;
                 default:
                     break;
@@ -104,19 +111,17 @@ namespace PDSApp.GUI {
 
         private void StartSniffing_Click(object sender, RoutedEventArgs e)
         {
-            //if (!  App.AppSniffingManager.IsSniffing()) at the position of the following if statement
-            if (controlSniffig.Content.Equals(START_SNIFFING))
-            {
+            if (!App.AppSniffingManager.IsSniffing()) {
                 //start sniffer code here
                 statusIcon.Background = Brushes.Orange;
                 loadingProgress.Value = 0;
-                //App.AppSniffingManager.StartSniffing();
+                App.AppSniffingManager.StartSniffing();
                 statusIcon.Background = Brushes.Green;
                 controlSniffig.Content = STOP_SNIFFING;
                 //enable tabs
                 ItemLoc.IsEnabled = true;
                 ItemStat.IsEnabled = true;
-                ItemHiddenDev.IsEnabled = true;
+                ItemHidden.IsEnabled = true;
                 ItemConfig.IsEnabled = false;
                 //disable the currect tab
                 usc.IsEnabled = false;
@@ -131,7 +136,6 @@ namespace PDSApp.GUI {
             else
             {
                 //stop sniffer code here
-                App.AppDBManager.CloseConn();
                 statusIcon.Background = Brushes.Orange;
                 loadingProgress.Value = 0;
                 App.AppSniffingManager.StopSniffing();  // If not sniffing returns immediately
@@ -140,7 +144,7 @@ namespace PDSApp.GUI {
                 //enable tabs
                 ItemLoc.IsEnabled = false;
                 ItemStat.IsEnabled = false;
-                ItemHiddenDev.IsEnabled = false;
+                ItemHidden.IsEnabled = false;
                 ItemConfig.IsEnabled = true;
                 //disable the current tab
                 usc.IsEnabled = false;

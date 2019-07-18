@@ -95,10 +95,16 @@
                             <TextBlock Text="Statistics" VerticalAlignment="Center"  Margin="20 10"/>
                         </StackPanel>
                     </ListViewItem>
-                    <ListViewItem x:Name="ItemHiddenDev" Height="60">
+                    <ListViewItem x:Name="ItemHidden" Height="60">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="map" Height="25" Width="25" Margin="10"/>
+                            <materialDesign:PackIcon Kind="incognito" Height="25" Width="25" Margin="10"/>
                             <TextBlock Text="Hidden Devices" VerticalAlignment="Center"  Margin="20 10"/>
+                        </StackPanel>
+                    </ListViewItem>
+                    <ListViewItem x:Name="ItemLog" Height="60">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FileDocument" Height="25" Width="25" Margin="10"/>
+                            <TextBlock Text="Log" VerticalAlignment="Center"  Margin="20 10"/>
                         </StackPanel>
                     </ListViewItem>
                 </ListView>

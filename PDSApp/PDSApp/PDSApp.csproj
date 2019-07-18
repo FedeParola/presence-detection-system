@@ -143,8 +143,14 @@
     <Compile Include="GUI\UserControlConfig.xaml.cs">
       <DependentUpon>UserControlConfig.xaml</DependentUpon>
     </Compile>
+    <Compile Include="GUI\UserControlHidden.xaml.cs">
+      <DependentUpon>UserControlHidden.xaml</DependentUpon>
+    </Compile>
     <Compile Include="GUI\UserControlLoc.xaml.cs">
       <DependentUpon>UserControlLoc.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\UserControlLog.xaml.cs">
+      <DependentUpon>UserControlLog.xaml</DependentUpon>
     </Compile>
     <Compile Include="GUI\UserControlMov.xaml.cs">
       <DependentUpon>UserControlMov.xaml</DependentUpon>
@@ -209,7 +215,15 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="GUI\UserControlHidden.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="GUI\UserControlLoc.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="GUI\UserControlLog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

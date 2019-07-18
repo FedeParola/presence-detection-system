@@ -132,5 +132,17 @@ namespace PDSApp.GUI {
 
 
         }
+
+        private void materialLabel2_Click(object sender, EventArgs e) {
+
+        }
+
+        private void txtW_TextChanged(object sender, EventArgs e) {
+
+        }
+
+        private void materialLabel1_Click(object sender, EventArgs e) {
+
+        }
     }
 }
