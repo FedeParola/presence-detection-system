@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
+using System.Threading;
 
 namespace PDSApp.GUI {
     /// <summary>
@@ -114,48 +115,78 @@ namespace PDSApp.GUI {
             if (!App.AppSniffingManager.IsSniffing()) {
                 //start sniffer code here
                 statusIcon.Background = Brushes.Orange;
-                loadingProgress.Value = 0;
-                App.AppSniffingManager.StartSniffing();
-                statusIcon.Background = Brushes.Green;
-                controlSniffig.Content = STOP_SNIFFING;
-                //enable tabs
-                ItemLoc.IsEnabled = true;
-                ItemStat.IsEnabled = true;
-                ItemHidden.IsEnabled = true;
-                ItemConfig.IsEnabled = false;
-                //disable the currect tab
-                usc.IsEnabled = false;
-                //swith to another tab
-                GridMain.Children.Clear();
-                usc = new UserControlLoc();
-                GridMain.Children.Add(usc);
-                MainTitle.Text = LOCALIZATION_TAB_TITLE;
-                //reset progress bar
-                loadingProgress.Value = 0;
-            }
-            else
-            {
+                loadingSpinner.Visibility = Visibility.Visible;
+                ThreadPool.QueueUserWorkItem(StartSniffing);
+
+            } else {
                 //stop sniffer code here
                 statusIcon.Background = Brushes.Orange;
-                loadingProgress.Value = 0;
-                App.AppSniffingManager.StopSniffing();  // If not sniffing returns immediately
-                statusIcon.Background = Brushes.Red;
-                controlSniffig.Content = START_SNIFFING;
-                //enable tabs
-                ItemLoc.IsEnabled = false;
-                ItemStat.IsEnabled = false;
-                ItemHidden.IsEnabled = false;
-                ItemConfig.IsEnabled = true;
-                //disable the current tab
-                usc.IsEnabled = false;
-                //switch to config control
-                GridMain.Children.Clear();
-                usc = new UserControlConfig();
-                GridMain.Children.Add(usc);
-                MainTitle.Text = CONFIG_TAB_TITLE;
-                //reset the progress bar
-                loadingProgress.Value = 0;
+                loadingSpinner.Visibility = Visibility.Visible;
+                ThreadPool.QueueUserWorkItem(StopSniffing);
             }
+        }
+
+        private void StartSniffing(object arg) {
+            try {
+                App.AppSniffingManager.StartSniffing();
+                Dispatcher.Invoke(SniffingStartedCallback);
+
+            } catch (Exception) {
+                Dispatcher.Invoke(SniffingStartErrorCallback);
+            }
+        }
+
+        private void StopSniffing(object arg) {
+            App.AppSniffingManager.StopSniffing();
+            Dispatcher.Invoke(SniffingStoppedCallback);
+        }
+
+        private void SniffingStartedCallback() {
+            statusIcon.Background = Brushes.Green;
+            controlSniffig.Content = STOP_SNIFFING;
+            //enable tabs
+            ItemLoc.IsEnabled = true;
+            ItemStat.IsEnabled = true;
+            ItemHidden.IsEnabled = true;
+            ItemConfig.IsEnabled = false;
+            //disable the currect tab
+            usc.IsEnabled = false;
+            //swith to another tab
+            GridMain.Children.Clear();
+            usc = new UserControlLoc();
+            GridMain.Children.Add(usc);
+            MainTitle.Text = LOCALIZATION_TAB_TITLE;
+            
+            loadingSpinner.Visibility = Visibility.Hidden;
+        }
+
+        private void SniffingStoppedCallback() {
+            statusIcon.Background = Brushes.Red;
+            controlSniffig.Content = START_SNIFFING;
+            //enable tabs
+            ItemLoc.IsEnabled = false;
+            ItemStat.IsEnabled = false;
+            ItemHidden.IsEnabled = false;
+            ItemConfig.IsEnabled = true;
+            //disable the current tab
+            usc.IsEnabled = false;
+            //switch to config control
+            GridMain.Children.Clear();
+            usc = new UserControlConfig();
+            GridMain.Children.Add(usc);
+            MainTitle.Text = CONFIG_TAB_TITLE;
+            
+            loadingSpinner.Visibility = Visibility.Hidden;
+        }
+
+        public void SniffingErrorCallback() {
+            SniffingStoppedCallback();
+            MessageBox.Show("There was an error in the sniffing process", "Sniffing Error");
+        }
+
+        private void SniffingStartErrorCallback() {
+            SniffingStoppedCallback();
+            MessageBox.Show("There was an error contacting the sniffers", "Sniffing Start Error");
         }
     }
 }

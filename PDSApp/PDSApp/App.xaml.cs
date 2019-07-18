@@ -22,7 +22,8 @@ namespace PDSApp {
                                                      Byte.Parse(ConfigurationManager.AppSettings["channel"]),
                                                      Double.Parse(ConfigurationManager.AppSettings["length"]),
                                                      Double.Parse(ConfigurationManager.AppSettings["width"]),
-                                                     AppDBManager, () => Console.WriteLine("Error Callback"));
+                                                     AppDBManager,
+                                                     ((GUI.MainWindow) MainWindow).SniffingErrorCallback);
             for (int i = 5; i < appSettings.Count; i++)
             {
                 string[] position = appSettings[i].Split(";");
