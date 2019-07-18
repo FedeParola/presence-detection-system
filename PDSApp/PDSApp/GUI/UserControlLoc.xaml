@@ -46,15 +46,16 @@
                     <TextBlock Margin="10,20,10,20" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap" Text="Animated movement of devices in a specified time interval"/>
                     
                     <Label Content="MAC address of the device: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
-                    <TextBox  x:Name="macAddr" Height="35" Width="150" />
-                    
+                    <ComboBox  x:Name="macAddrList" Height="35" Width="180" HorizontalAlignment="center" Margin="10,10,10,0"></ComboBox>
+
                     <Label Content="Start time: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
                     <xctk:DateTimePicker x:Name="animStart" AllowTextInput="False" Format ="Custom"  FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="180"/>
                     
                     <Label Content="Stop time: " HorizontalAlignment="center" Margin="0,10,0,0"></Label>
                     <xctk:DateTimePicker x:Name="animStop"  AllowTextInput="False" Format ="Custom" FormatString = "yyyy-MM-dd HH:mm:ss" Height="35" Width="180"/>
-                    
-                    <Button x:Name="btnComputeMovements" Content="Compute" Margin="0,40,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" Click="Compute_Movements_Button_Click"/>
+
+                    <Button x:Name="btnListAddr" Content="List MAC addresses" Margin="0,30,0,0" HorizontalAlignment="center" Width="200"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" Click="List_Addr_Button_Click"/>
+                    <Button x:Name="btnComputeMovements" Content="Compute device movements" Margin="0,20,0,0" HorizontalAlignment="center" Width="230"  Background="#FF31577E" BorderThickness="1" Height="38" RenderTransformOrigin="0.55,1.825" Click="Compute_Movements_Button_Click"/>
                     
                     <Slider x:Name = "slider" Minimum = "0" Maximum = "0" TickFrequency = "1" TickPlacement = "BottomRight" ValueChanged = "Slider_ValueChanged" Margin = "10, 20, 10, 0"></Slider>
                     <TextBlock x:Name = "positionTimestamp" Margin="0,10,0,0" HorizontalAlignment="center" TextAlignment="Center" FontSize="15" TextWrapping="Wrap"/>

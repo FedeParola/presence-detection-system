@@ -27,6 +27,7 @@ namespace PDSApp.GUI {
         private NumberFormatInfo nfi;
 
         //LIVE LOCALIZATION
+        private List<ChartValues<ScatterPoint>> espPositions;
         private List<ChartValues<ScatterPoint>> devicesPositions;
         private DispatcherTimer locChartRefreshTimer = new DispatcherTimer();
         private long timeInterval;
@@ -52,6 +53,7 @@ namespace PDSApp.GUI {
 
             //LIVE LOCALIZATION
             devicesPositions = new List<ChartValues<ScatterPoint>>();
+            espPositions = new List<ChartValues<ScatterPoint>>();
 
             locChartRefreshTimer.Tick += LocChartRefreshTimer_Tick;
             //Stop the timer when the Control is unloaded
@@ -94,6 +96,24 @@ namespace PDSApp.GUI {
             devicesPositions.Clear();
             SeriesCollection.Clear();
 
+            //show the esp boards in the chart
+            int j = 0; 
+            foreach (var sniffer in App.AppSniffingManager.GetSniffers()){
+                espPositions.Add(new ChartValues<ScatterPoint>{
+                    new ScatterPoint(sniffer.Position.X, sniffer.Position.Y)
+                });
+
+                SeriesCollection.Add(new ScatterSeries{
+                    Title = "IP address: " + sniffer.Ip,
+                    Values = espPositions[j],  
+                    PointGeometry = DefaultGeometries.Diamond,
+                    MinPointShapeDiameter = 20,
+                    MaxPointShapeDiameter = 20
+                });
+
+                j++;
+            }
+
             //For all the devices detected since (now-timeInterval) compute and return the latest position
             List<Tuple<String, Location>> positions = App.AppDBManager.EstimateDevicesPosition(timeInterval);
             for (int i = 0; i < positions.Count; i++){
@@ -113,7 +133,28 @@ namespace PDSApp.GUI {
             }
         }
 
-    //DEVICE ANIMATION
+        //DEVICE ANIMATION
+
+        private void List_Addr_Button_Click(object sender, RoutedEventArgs e) {
+            if (animStart.Value.IsNull() || animStop.Value.IsNull()) {
+                MessageBox.Show("Set the time interval", "Invalid input");
+                return;
+            }
+            DateTime startDate = DateTime.ParseExact(animStart.Text, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+            DateTime stopDate = DateTime.ParseExact(animStop.Text, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+            startTime = new DateTimeOffset(startDate).ToUnixTimeMilliseconds();
+            stopTime = new DateTimeOffset(stopDate).ToUnixTimeMilliseconds();
+            if (stopTime < startTime) {
+                MessageBox.Show("Invalid time interval", "Invalid input");
+                return;
+            }
+            //macAddrList.ItemsSource = App.AppDBManager.GetAddrList(startTime, stopTime);
+            macAddrList.Items.Clear();
+            foreach (var addr in App.AppDBManager.GetAddrList(startTime, stopTime)){
+                macAddrList.Items.Add(addr);
+            }
+        }
+
         private void Compute_Movements_Button_Click(object sender, RoutedEventArgs e){
             //Stop the locChartTimer if enabled
             if (locChartRefreshTimer.IsEnabled){
@@ -126,7 +167,7 @@ namespace PDSApp.GUI {
             SeriesCollection.Clear();
 
             //Get the (possibly new) value of the parameters
-            mac = macAddr.Text;
+            mac = macAddrList.Text;
             mac = mac.ToUpper();
             if (animStart.Value.IsNull() || animStop.Value.IsNull()){
                 MessageBox.Show("Set the time interval", "Invalid input");
@@ -150,18 +191,26 @@ namespace PDSApp.GUI {
                 MessageBox.Show("The device was not detected in the given time interval!", "Warning");
                 return; 
             }
+
             for(int i = 0; i < movements.Count; i++){
                 deviceMovements.Add(new ChartValues<ScatterPoint>{
                     new ScatterPoint(movements[i].Position.X, movements[i].Position.Y)
                 });
             }
             slider.Maximum = movements.Count - 1;
+
+            MovChart_Update(0);
         }
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e){
             int i = Convert.ToInt32(e.NewValue);
+            MovChart_Update(i);
+        }
+
+        private void MovChart_Update(int i)
+        {
             Location loc = movements[i];
-            
+
             //Update the slider label
             String timestamp = DateTimeOffset.FromUnixTimeMilliseconds(movements[i].Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss");
             string msg = String.Format("Timestamp: " + timestamp);
@@ -169,8 +218,9 @@ namespace PDSApp.GUI {
 
             //Update the chart
             SeriesCollection.Clear();
-            SeriesCollection.Add(new ScatterSeries{
-                Title = "Timestamp: " + DateTimeOffset.FromUnixTimeMilliseconds(loc.Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"), //timestamp  
+            SeriesCollection.Add(new ScatterSeries
+            {
+                Title = "Timestamp: " + DateTimeOffset.FromUnixTimeMilliseconds(loc.Timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") + " Position: ",
                 Values = deviceMovements[i],  //position of the device
                 MinPointShapeDiameter = 15,
                 MaxPointShapeDiameter = 15

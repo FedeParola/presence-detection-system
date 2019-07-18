@@ -11,47 +11,22 @@ namespace PDSApp.Persistence {
         private NpgsqlConnection conn;
         private NumberFormatInfo nfi = new NumberFormatInfo();
         
-        public DBManager(String host, String user, String pass, String database)
-        {
-            /*Creates the db 'database' if it doesn't exist*/
-            //CreateDB(host, database);
-
+        public DBManager(String host, String user, String pass, String database){
             conn = new NpgsqlConnection("Host = " + host + ";" + 
                                         "Username = " + user + ";" +
                                         "Password = " + pass + ";" +
                                         "Database = " + database);
 
-            /*Creates the table 'Record' if it doesn't exist 
-             (the db and the user to which the table belongs probably are the same of the connection  
-             used to execute the command, so I don't need to specify them in the creation of the table)*/
+            //Creates the table 'Record' if it doesn't exist
             CreateRecordsTable();
             CreateLocalRecordView();
 
             nfi.NumberDecimalSeparator = ".";
         }
 
-        private void CreateDB(String host, String dbName){
-            using (var adminConn = new NpgsqlConnection("Host = " + host + "; Username = postgres; Password = admin;"))
-            {
-                using (var cmd = new NpgsqlCommand())
-                {
-                    /*This syntax doesn't exist! And do we really want to create the db via the application?*/
-                    cmd.Connection = adminConn;
-                    cmd.CommandText =
-                        "CREATE DATABASE IF NOT EXISTS \"" + dbName + "\" " +
-                        "WITH OWNER = user " +
-                        "ENCODING = 'UTF8' " +
-                        "CONNECTION LIMIT = -1;";
-                    adminConn.Open();
-                    cmd.ExecuteNonQuery();
-                    adminConn.Close();
-                }             
-            }
-        }
-
         private void CreateRecordsTable(){
-            using (var cmd = new NpgsqlCommand())
-            {
+
+            using (var cmd = new NpgsqlCommand()){
                 cmd.Connection = conn;
                 cmd.CommandText =
                     "CREATE TABLE IF NOT EXISTS \"Record\"(" +
@@ -82,7 +57,6 @@ namespace PDSApp.Persistence {
             }
         }
 
-        /*TODO: we should call this method somewhere in the sniffingManager*/
         public void CloseConn(){
             if (conn != null)
                 ((IDisposable)conn).Dispose();
@@ -132,15 +106,13 @@ namespace PDSApp.Persistence {
             int result;
             long startingTimeInstant = new DateTimeOffset(DateTime.Now).ToUnixTimeMilliseconds() - timeInterval;
 
-            using (var cmd = new NpgsqlCommand())
-            {
+            using (var cmd = new NpgsqlCommand()){
                 cmd.Connection = conn;
                 cmd.CommandText = 
                     "SELECT COUNT (DISTINCT \"MAC\") " +
                     "FROM \"Record\" WHERE \"Timestamp\" >= " + startingTimeInstant + ";";
                 conn.Open();
-                using (var reader = cmd.ExecuteReader())
-                {
+                using (var reader = cmd.ExecuteReader()){
                     reader.Read();
                     result = reader.GetInt32(0);
                 }
@@ -212,8 +184,7 @@ namespace PDSApp.Persistence {
             long timeStep, int devicesCount) {
             var detections = new Dictionary<long, List<Tuple<string, int>>>();
 
-            using (var cmd = new NpgsqlCommand())
-            {
+            using (var cmd = new NpgsqlCommand()){
                 cmd.Connection = conn;
                 cmd.CommandText =
                     "SELECT \"MAC\", \"Timestamp\"-(\"Timestamp\"%" + timeStep + ") AS Interval, COUNT(*) " +
@@ -230,8 +201,7 @@ namespace PDSApp.Persistence {
                     "   LIMIT " + devicesCount + ")" +
                     "   GROUP BY \"MAC\", Interval;";
                 conn.Open();
-                using (var reader = cmd.ExecuteReader())
-                {
+                using (var reader = cmd.ExecuteReader()){
                     while (reader.Read()){
                         if (!detections.ContainsKey(reader.GetInt64(1))) {
                             detections.Add(reader.GetInt64(1), new List<Tuple<string, int>>());
@@ -291,6 +261,28 @@ namespace PDSApp.Persistence {
             }
 
             return packets;
+        }
+
+        public List<String> GetAddrList(long startInstant, long stopInstant){
+            List<String> addrList = new List<String>();
+
+            using (var cmd = new NpgsqlCommand()){
+                cmd.Connection = conn;
+                cmd.CommandText =
+                "SELECT DISTINCT \"MAC\" " +
+                "FROM \"Record\" " +
+                "WHERE \"Timestamp\" >= " + startInstant + " AND" +
+                "         \"Timestamp\" <= " + stopInstant + ";";
+                conn.Open();
+                using (var reader = cmd.ExecuteReader()){
+                    while (reader.Read()){
+                        addrList.Add(reader.GetString(0));
+                    }
+                }
+                conn.Close();
+            }
+
+            return addrList;
         }
 
         public List<Location> GetDeviceMovements(String macAddr, long startInstant, long stopInstant, long resolution) {
