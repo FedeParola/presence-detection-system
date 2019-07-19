@@ -21,41 +21,26 @@ namespace PDSApp.GUI {
         {
             if (config != null)
             {
-                txtW.Text = config.AppSettings.Settings["width"].Value;
                 txtH.Text = config.AppSettings.Settings["length"].Value;
+                txtW.Text = config.AppSettings.Settings["width"].Value;
                 txtCh.Text = config.AppSettings.Settings["channel"].Value;
                 txtTim.Text = config.AppSettings.Settings["timer"].Value;
                 txtPort.Text = config.AppSettings.Settings["port"].Value;
+                txtH.Select();
             }
         }
 
         private void buttonSavePrj_Click(object sender, EventArgs e)
         {
-            String textW = txtW.Text;
             String textH = txtH.Text;
+            String textW = txtW.Text;
             String textCh = txtCh.Text;
             String textTim = txtTim.Text;
             String textPor = txtPort.Text;
             Boolean error = false;
             Configuration config = ConfigurationManager.OpenExeConfiguration(Application.ExecutablePath);
 
-            if (!string.IsNullOrWhiteSpace(textW))
-            {
-                try
-                {
-                    App.AppSniffingManager.RoomWidth = Double.Parse(textW);
-                    config.AppSettings.Settings["width"].Value = textW;
-                    config.Save(ConfigurationSaveMode.Modified);
-                    ConfigurationManager.RefreshSection("appSettings");
-                }
-                catch (Exception)
-                {
-                    error = true;
-                    MessageBox.Show("Enter a valid width parameter", "Invalid parameter");
-                    txtW.Text = config.AppSettings.Settings["width"].Value;
-                }
-
-            }
+            
             if (!string.IsNullOrWhiteSpace(textH))
             {
                 try
@@ -70,6 +55,23 @@ namespace PDSApp.GUI {
                     error = true;
                     MessageBox.Show("Enter a valid length parameter", "Invalid parameter");
                     txtH.Text = config.AppSettings.Settings["length"].Value;
+                }
+
+            }
+            if (!string.IsNullOrWhiteSpace(textW))
+            {
+                try
+                {
+                    App.AppSniffingManager.RoomWidth = Double.Parse(textW);
+                    config.AppSettings.Settings["width"].Value = textW;
+                    config.Save(ConfigurationSaveMode.Modified);
+                    ConfigurationManager.RefreshSection("appSettings");
+                }
+                catch (Exception)
+                {
+                    error = true;
+                    MessageBox.Show("Enter a valid width parameter", "Invalid parameter");
+                    txtW.Text = config.AppSettings.Settings["width"].Value;
                 }
 
             }

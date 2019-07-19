@@ -147,7 +147,6 @@ namespace PDSApp.GUI {
             controlSniffing.IsEnabled = true;
             statusIcon.Background = Brushes.Green;
             controlSniffing.Content = STOP_SNIFFING;
-            
             loadingSpinner.Visibility = Visibility.Hidden;
         }
 
@@ -163,7 +162,8 @@ namespace PDSApp.GUI {
             usc = new UserControlConfig();
             GridMain.Children.Add(usc);
             MainTitle.Text = CONFIG_TAB_TITLE;
-            
+            ListViewMenu.SelectedItem=ItemConfig;
+            ItemConfig.IsSelected = true;
             loadingSpinner.Visibility = Visibility.Hidden;
         }
 
