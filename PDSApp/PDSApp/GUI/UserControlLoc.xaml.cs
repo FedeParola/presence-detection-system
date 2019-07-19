@@ -11,6 +11,7 @@ using LiveCharts.Defaults;
 using LiveCharts.Wpf;
 using PDSApp.Persistence;
 using System.Text.RegularExpressions;
+using System.Windows.Media;
 
 namespace PDSApp.GUI {
     /// <summary>
@@ -108,12 +109,13 @@ namespace PDSApp.GUI {
                     new ScatterPoint(sniffer.Position.X, sniffer.Position.Y)
                 });
 
-                SeriesCollection.Add(new ScatterSeries{
+                SeriesCollection.Add(new ScatterSeries {
                     Title = "IP address: " + sniffer.Ip + " Position: ",
-                    Values = espPositions[j],  
+                    Values = espPositions[j],
                     PointGeometry = DefaultGeometries.Diamond,
-                    MinPointShapeDiameter = 20,
-                    MaxPointShapeDiameter = 20
+                    Fill = Brushes.Black,
+                    MinPointShapeDiameter = 30,
+                    MaxPointShapeDiameter = 30
                 });
 
                 j++;

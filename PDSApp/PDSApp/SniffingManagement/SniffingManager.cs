@@ -277,10 +277,7 @@ namespace PDSApp.SniffingManagement {
                 /* Unmarshal the json stream */
                 Console.WriteLine("(HandleSniffer " + snifferAddr + ") Receiving records from " + snifferAddr + "...");
                 List<Record> records = (List<Record>) serializer.Deserialize(new StreamReader(client.GetStream()), typeof(List<Record>));
-                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Records received");
-                foreach (Record r in records) {
-                    Console.WriteLine(snifferAddr + ":   " + r.Hash + "     " + r.MacAddr + "    " + r.Rssi);
-                }
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") " + records.Count + " records received");
                 rawRecords[snifferAddr] = records;
 
                 /* Signal that records for the current sniffer are ready */

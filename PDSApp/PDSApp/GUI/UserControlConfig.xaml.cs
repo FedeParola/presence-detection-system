@@ -56,7 +56,7 @@ namespace PDSApp.GUI {
             for (int i = 0; i < App.AppSniffingManager.GetSniffersCount(); i++)
             {
                 RowDefinition rowDef = new RowDefinition();
-                rowDef.Height = new GridLength(200);
+                rowDef.Height = new GridLength(150);
                 ESPList.RowDefinitions.Add(rowDef);
             }
 
