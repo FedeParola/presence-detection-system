@@ -54,6 +54,11 @@ namespace PDSApp.GUI {
         }
 
         private void Real_Time_Button_Click(object sender, RoutedEventArgs e) {
+            if (!App.AppSniffingManager.IsSniffing()){
+                MessageBox.Show("You must first activate the sniffing process!", "Invalid action");
+                return;
+            }
+
             /* Clear old series and timer (if running) */
             SeriesCollection.Clear();
             if (chartRefreshTimer.IsEnabled) {

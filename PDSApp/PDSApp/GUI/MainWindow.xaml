@@ -49,7 +49,7 @@
                 <fa:ImageAwesome Name="loadingSpinner" Icon="CircleOutlineNotch" Foreground="White" Spin="True" SpinDuration="1.5" Margin="20,10" Visibility="Hidden"/>
                 <Label Content="Status" VerticalAlignment="Center" FontSize="16" Foreground="White"/>
                 <Label x:Name="statusIcon" VerticalAlignment="Center" Margin="5,3,0,0" Background="Red"/>
-                <Button x:Name="controlSniffig" Content="Start Sniffing" VerticalAlignment="Bottom" Margin="50,0,20,11" Width="200" Background="#FF31577E" BorderThickness="1" Height="38" Click="StartSniffing_Click"/>
+                <Button x:Name="controlSniffing" Content="Start Sniffing" VerticalAlignment="Bottom" Margin="50,0,20,11" Width="200" Background="#FF31577E" BorderThickness="1" Height="38" Click="StartSniffing_Click"/>
             </StackPanel>
             <TextBlock x:Name="MainTitle"  HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="22">ESP32 APPLICATION</TextBlock>
         </Grid>

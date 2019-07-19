@@ -20,7 +20,9 @@ namespace PDSApp.GUI {
             InitializeComponent();
             this.GenerateGrid();
             this.WritePrjParameters();
-
+            //disable UserControlConfig tab
+            if (App.AppSniffingManager.IsSniffing() || App.AppSniffingManager.IsStarting())
+                this.IsEnabled = false;
         }
 
         private void WritePrjParameters()
@@ -79,17 +81,10 @@ namespace PDSApp.GUI {
                 Label lblip = new Label();
                 lblip.Content = "IP Address: " + s.Ip;
                 lblip.FontSize = 23;
-                Label lblstate = new Label();
-                if (App.AppSniffingManager.IsSniffing())
-                    lblstate.Content = "ESP Status: active";
-                else
-                    lblstate.Content = "ESP Status: ready";
-                lblstate.FontSize = 23;
                 Label lblloc = new Label();
                 lblloc.Content = "Position (x; y) : " + s.Position.X + "; " + s.Position.Y;
                 lblloc.FontSize = 23;
                 stplbl.Children.Add(lblip);
-                stplbl.Children.Add(lblstate);
                 stplbl.Children.Add(lblloc);
                 Grid.SetColumn(stplbl, 0);
 

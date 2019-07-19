@@ -34,6 +34,7 @@ namespace PDSApp.SniffingManagement {
         
         /* Sniffing start/stop fields */
         private bool sniffing = false;
+        private bool starting = false;
         private AutoResetEvent listeningStopped = new AutoResetEvent(false);
         private Task processRecordsTask;
         private SynchCounter handleSnifferTasksCount = new SynchCounter(0);
@@ -135,14 +136,16 @@ namespace PDSApp.SniffingManagement {
         }
 
         public void StartSniffing() {
-            if(sniffing) {
+            if(sniffing || starting) {
                 throw new InvalidOperationException("Already sniffing, call StopSniffing() first");
             }
 
             /* Check enough sniffers configured */
-            if (sniffers.Count < 1 /* CAMBIALO A 2!!! */) {
+            if (sniffers.Count < 2) {
                 throw new InvalidOperationException("Needed at least 2 sniffers to start sniffing");
             }
+
+            starting = true;
 
             /* Initialize structures */
             cancelSniffing = new CancellationTokenSource();
@@ -176,6 +179,7 @@ namespace PDSApp.SniffingManagement {
             }
             
             sniffing = true;
+            starting = false;
         }
 
         public void StopSniffing() {
@@ -223,11 +227,17 @@ namespace PDSApp.SniffingManagement {
                 sniffersConfigurationSemaphore.Dispose();
 
                 sniffing = false;
+                starting = false;
             }
         }
         
         public bool IsSniffing() {
             return sniffing;
+        }
+
+        public bool IsStarting()
+        {
+            return starting;
         }
 
         private void AcceptClient(IAsyncResult ar) {
@@ -298,6 +308,7 @@ namespace PDSApp.SniffingManagement {
             /* Exception in the communication with the sniffer */
             } catch (Exception e) when (e is SocketException || e is IOException) {
                 /* Schedule a HandleError task */
+                Console.WriteLine("(HandleSniffer " + snifferAddr + ") Communication error");
                 ThreadPool.QueueUserWorkItem(HandleError);
                 return;
 
@@ -322,6 +333,7 @@ namespace PDSApp.SniffingManagement {
 
                     if (!countdownSet) {
                         /* The timout expired before all sniffers transmitted records, schedule a HandleError task */
+                        Console.WriteLine("(ProcessRecords) Timeout exceeded waiting for the sniffers");
                         ThreadPool.QueueUserWorkItem(HandleError);
                         return;
                     }
@@ -434,7 +446,6 @@ namespace PDSApp.SniffingManagement {
         }
 
         private void HandleError(object arg) {
-            Console.WriteLine("(HandleError) Error in the communication with a sniffer");
             StopSniffing();
 
             /* Execute registered callback */

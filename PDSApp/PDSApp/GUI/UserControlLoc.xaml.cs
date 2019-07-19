@@ -71,6 +71,11 @@ namespace PDSApp.GUI {
 
     //LIVE LOCALIZATION
         private void Live_Localization_Button_Click(object sender, RoutedEventArgs e){
+            if (!App.AppSniffingManager.IsSniffing()){
+                MessageBox.Show("You must first activate the sniffing process!", "Invalid action");
+                return;
+            }
+
             //Stop the timer if already enabled and get the (new) time interval
             if (locChartRefreshTimer.IsEnabled){
                 locChartRefreshTimer.Stop();

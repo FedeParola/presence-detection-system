@@ -32,9 +32,6 @@ namespace PDSApp.GUI {
             usc = new UserControlConfig();
             GridMain.Children.Add(usc);
             MainTitle.Text = CONFIG_TAB_TITLE;
-            ItemLoc.IsEnabled = false;
-            ItemStat.IsEnabled = false;
-            ItemHidden.IsEnabled = false;
             uscLog = new UserControlLog();
             App.AppSniffingManager.errorHandler = this.SniffingErrorCallback;
         }
@@ -113,10 +110,14 @@ namespace PDSApp.GUI {
 
         private void StartSniffing_Click(object sender, RoutedEventArgs e)
         {
+            controlSniffing.IsEnabled = false;
             if (!App.AppSniffingManager.IsSniffing()) {
                 //start sniffer code here
                 statusIcon.Background = Brushes.Orange;
                 loadingSpinner.Visibility = Visibility.Visible;
+                //disable UserControlConfig tab
+                if (usc is UserControlConfig)
+                    usc.IsEnabled = false;
                 ThreadPool.QueueUserWorkItem(StartSniffing);
 
             } else {
@@ -143,34 +144,20 @@ namespace PDSApp.GUI {
         }
 
         private void SniffingStartedCallback() {
+            controlSniffing.IsEnabled = true;
             statusIcon.Background = Brushes.Green;
-            controlSniffig.Content = STOP_SNIFFING;
-            //enable tabs
-            ItemLoc.IsEnabled = true;
-            ItemStat.IsEnabled = true;
-            ItemHidden.IsEnabled = true;
-            ItemConfig.IsEnabled = false;
-            //disable the currect tab
-            usc.IsEnabled = false;
-            //swith to another tab
-            GridMain.Children.Clear();
-            usc = new UserControlLoc();
-            GridMain.Children.Add(usc);
-            MainTitle.Text = LOCALIZATION_TAB_TITLE;
+            controlSniffing.Content = STOP_SNIFFING;
             
             loadingSpinner.Visibility = Visibility.Hidden;
         }
 
         private void SniffingStoppedCallback() {
+            //enable UserControlConfig tab
+            if (usc is UserControlConfig)
+                usc.IsEnabled = true;
+            controlSniffing.IsEnabled = true;
             statusIcon.Background = Brushes.Red;
-            controlSniffig.Content = START_SNIFFING;
-            //enable tabs
-            ItemLoc.IsEnabled = false;
-            ItemStat.IsEnabled = false;
-            ItemHidden.IsEnabled = false;
-            ItemConfig.IsEnabled = true;
-            //disable the current tab
-            usc.IsEnabled = false;
+            controlSniffing.Content = START_SNIFFING;
             //switch to config control
             GridMain.Children.Clear();
             usc = new UserControlConfig();
