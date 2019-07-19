@@ -60,19 +60,14 @@ namespace PDSApp.GUI {
                     checkedP[current] = true;
                     devicesCount++;
 
-                    Console.WriteLine("Analyzing " + packets[current].MacAddr + ":");
-
                     /* Look for other packets of the same device */
                     bool nextPacketFound = true;
                     while (nextPacketFound) {
                         /* Look for other packets with the same MAC address in the following minutes */
-                        for (int j = current + 1;
-                            j < packets.Count && packets[j].Timestamp - packets[current].Timestamp < TIME_THRESHOLD;
-                            j++) {
+                        for (int j = current + 1; j < packets.Count; j++) {
                             if (packets[current].MacAddr.Equals(packets[j].MacAddr)) {
                                 checkedP[j] = true;
                                 current = j;
-                                Console.WriteLine("Found Equal");
                             }
                         }
 
@@ -90,7 +85,6 @@ namespace PDSApp.GUI {
                             double ratioDeviation = Math.Abs(ComputeRatio(packets[current], packets[j]) - NORMAL_PACKETS_RATIO);
                             
                             if (timeLapse < TIME_THRESHOLD && speed <= SPEED_THRESHOLD && ratioDeviation < RATIO_DEVIATION_THRESHOLD) {
-                                Console.WriteLine("Found Unequal");
                                 current = j;
                                 checkedP[current] = true;
                                 nextPacketFound = true;

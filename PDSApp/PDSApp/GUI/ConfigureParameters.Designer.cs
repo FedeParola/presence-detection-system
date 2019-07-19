@@ -44,7 +44,7 @@
             // 
             this.buttonSavePrj.Depth = 0;
             this.buttonSavePrj.Location = new System.Drawing.Point(210, 301);
-            this.buttonSavePrj.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.buttonSavePrj.Margin = new System.Windows.Forms.Padding(2);
             this.buttonSavePrj.MouseState = MaterialSkin.MouseState.HOVER;
             this.buttonSavePrj.Name = "buttonSavePrj";
             this.buttonSavePrj.Primary = true;
@@ -58,7 +58,7 @@
             // 
             this.txtTim.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtTim.Location = new System.Drawing.Point(210, 205);
-            this.txtTim.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.txtTim.Margin = new System.Windows.Forms.Padding(2);
             this.txtTim.Name = "txtTim";
             this.txtTim.Size = new System.Drawing.Size(136, 26);
             this.txtTim.TabIndex = 16;
@@ -67,7 +67,7 @@
             // 
             this.txtCh.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtCh.Location = new System.Drawing.Point(210, 160);
-            this.txtCh.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.txtCh.Margin = new System.Windows.Forms.Padding(2);
             this.txtCh.Name = "txtCh";
             this.txtCh.Size = new System.Drawing.Size(136, 26);
             this.txtCh.TabIndex = 15;
@@ -76,7 +76,7 @@
             // 
             this.txtH.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtH.Location = new System.Drawing.Point(210, 75);
-            this.txtH.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.txtH.Margin = new System.Windows.Forms.Padding(2);
             this.txtH.Name = "txtH";
             this.txtH.Size = new System.Drawing.Size(136, 26);
             this.txtH.TabIndex = 14;
@@ -85,7 +85,7 @@
             // 
             this.txtW.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtW.Location = new System.Drawing.Point(209, 117);
-            this.txtW.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.txtW.Margin = new System.Windows.Forms.Padding(2);
             this.txtW.Name = "txtW";
             this.txtW.Size = new System.Drawing.Size(136, 26);
             this.txtW.TabIndex = 13;
@@ -101,9 +101,9 @@
             this.materialLabel4.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
             this.materialLabel4.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialLabel4.Name = "materialLabel4";
-            this.materialLabel4.Size = new System.Drawing.Size(114, 19);
+            this.materialLabel4.Size = new System.Drawing.Size(136, 19);
             this.materialLabel4.TabIndex = 12;
-            this.materialLabel4.Text = "Sniffing period :";
+            this.materialLabel4.Text = "Sniffing period (s) :";
             // 
             // materialLabel3
             // 
@@ -153,7 +153,7 @@
             // 
             this.txtPort.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtPort.Location = new System.Drawing.Point(210, 249);
-            this.txtPort.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.txtPort.Margin = new System.Windows.Forms.Padding(2);
             this.txtPort.Name = "txtPort";
             this.txtPort.Size = new System.Drawing.Size(136, 26);
             this.txtPort.TabIndex = 19;
@@ -188,7 +188,7 @@
             this.Controls.Add(this.materialLabel3);
             this.Controls.Add(this.materialLabel2);
             this.Controls.Add(this.materialLabel1);
-            this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.Margin = new System.Windows.Forms.Padding(2);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "ConfigureParameters";
