@@ -65,7 +65,7 @@ namespace PDSApp.GUI {
                     while (nextPacketFound) {
                         /* Look for other packets with the same MAC address in the following minutes */
                         for (int j = current + 1; j < packets.Count; j++) {
-                            if (packets[current].MacAddr.Equals(packets[j].MacAddr)) {
+                            if (!checkedP[j] && packets[current].MacAddr.Equals(packets[j].MacAddr)) {
                                 checkedP[j] = true;
                                 current = j;
                             }
@@ -80,18 +80,20 @@ namespace PDSApp.GUI {
                         nextPacketFound = false;
                         long timeLapse = 0;
                         for (int j = current + 1; j < packets.Count && timeLapse < TIME_THRESHOLD && !nextPacketFound; j++) {
-                            timeLapse = packets[j].Timestamp - packets[current].Timestamp;
-                            double speed = packets[current].Position.Distance(packets[j].Position) / timeLapse * 1000;
-                            double ratioDeviation = Math.Abs(ComputeRatio(packets[current], packets[j]) - NORMAL_PACKETS_RATIO);
-                            
-                            if (timeLapse < TIME_THRESHOLD && speed <= SPEED_THRESHOLD && ratioDeviation < RATIO_DEVIATION_THRESHOLD) {
-                                current = j;
-                                checkedP[current] = true;
-                                nextPacketFound = true;
+                            if (!checkedP[j]) {
+                                timeLapse = packets[j].Timestamp - packets[current].Timestamp;
+                                double speed = packets[current].Position.Distance(packets[j].Position) / timeLapse * 1000;
+                                double ratioDeviation = Math.Abs(ComputeRatio(packets[current], packets[j]) - NORMAL_PACKETS_RATIO);
+                                
+                                if (timeLapse < TIME_THRESHOLD && speed <= SPEED_THRESHOLD && ratioDeviation < RATIO_DEVIATION_THRESHOLD) {
+                                    current = j;
+                                    checkedP[current] = true;
+                                    nextPacketFound = true;
 
-                                /* Compute errors */
-                                errors.Add(1 - Math.Exp(-Ks*speed)); // Speed error
-                                errors.Add(1 - Math.Exp(-Kr * ratioDeviation));// Packets ratio error
+                                    /* Compute errors */
+                                    errors.Add(1 - Math.Exp(-Ks * speed)); // Speed error
+                                    errors.Add(1 - Math.Exp(-Kr * ratioDeviation));// Packets ratio error
+                                }
                             }
                         }
                     }
@@ -113,7 +115,7 @@ namespace PDSApp.GUI {
         private double ComputeRatio(Packet first, Packet second) {
             int firstSeq = first.SequenceCtrl & SEQ_NUMBER_MASK;
             int secondSeq = second.SequenceCtrl & SEQ_NUMBER_MASK;
-            int diff;
+            double diff;
 
             if (secondSeq > firstSeq) {
                 diff = secondSeq - firstSeq;
