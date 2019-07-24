@@ -112,6 +112,12 @@ namespace PDSApp.GUI {
         {
             controlSniffing.IsEnabled = false;
             if (!App.AppSniffingManager.IsSniffing()) {
+                if (App.AppSniffingManager.GetSniffersCount() < 2) {
+                    MessageBox.Show("Needed at least 2 sniffers to start sniffing", "Setup Error");
+                    controlSniffing.IsEnabled = true;
+                    return;
+                }
+
                 //start sniffer code here
                 statusIcon.Background = Brushes.Orange;
                 loadingSpinner.Visibility = Visibility.Visible;
