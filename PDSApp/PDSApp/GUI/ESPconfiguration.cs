@@ -50,12 +50,18 @@ namespace PDSApp.GUI {
                     //aggiungo una ESP con i valori delle textBox
                     if (Regex.Match(textX, @"\d+").Success && Regex.Match(textY, @"\d+").Success)
                     {
+                        try {
+                            App.AppSniffingManager.AddSniffer(new Sniffer(textip, new PDSApp.SniffingManagement.Trilateration.Point(Double.Parse(textX), Double.Parse(textY))));
+
+                        } catch (ArgumentException err) {
+                            MessageBox.Show(err.Message, "Invalid parameters");
+                            return;
+                        }
+
                         string value = textX + ";" + textY;
                         config.AppSettings.Settings.Add(textip, value);
                         config.Save(ConfigurationSaveMode.Modified);
                         ConfigurationManager.RefreshSection("appSettings");
-
-                        App.AppSniffingManager.AddSniffer(new Sniffer(textip, new PDSApp.SniffingManagement.Trilateration.Point(Double.Parse(textX), Double.Parse(textY))));
 
                         this.Close();
                     }
